@@ -111,7 +111,6 @@ func (m Model) View() string {
 	}
 
 	var b strings.Builder
-	b.WriteString("tmcp\n\n")
 	b.WriteString(m.input.View())
 	b.WriteString("\n\n")
 
