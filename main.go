@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/gh-liu/tmcp/internal/tmux"
+	"github.com/gh-liu/tmcp/internal/ui"
 )
 
 func main() {
@@ -18,7 +19,20 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		fmt.Println("tmcp")
+		commands, err := tmux.ListCommands(ctx)
+		if err != nil {
+			return err
+		}
+
+		selection, err := ui.PickCommand(commands)
+		if err != nil {
+			return err
+		}
+
+		if selection != "" {
+			fmt.Println(selection)
+		}
+
 		return nil
 	}
 
