@@ -12,13 +12,17 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-const maxVisibleCandidates = 10
+const (
+	defaultVisibleCandidates = 10
+)
 
 type Model struct {
 	input      textinput.Model
 	commands   []tmux.Command
 	completer  complete.Completer
 	candidates []complete.Candidate
+	width      int
+	height     int
 	cursor     int
 	offset     int
 	selection  string
@@ -63,6 +67,10 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -110,17 +118,19 @@ func (m Model) View() string {
 		return ""
 	}
 
-	var b strings.Builder
-	b.WriteString(m.input.View())
-	b.WriteString("\n\n")
+	width := m.renderWidth()
+	visibleCandidates := m.visibleCandidates()
 
+	var lines []string
+	lines = append(lines, fitLine(m.renderInput(), width), fitLine("", width))
 	if len(m.candidates) == 0 {
-		b.WriteString("  no matches\n")
-		return b.String()
+		lines = append(lines, fitLine("  no matches", width))
+		lines = append(lines, emptyLines(max(0, visibleCandidates-1), width)...)
+		return joinLines(lines)
 	}
 
-	start, end := visibleWindow(len(m.candidates), m.offset, maxVisibleCandidates)
-	scrollbar := scrollbarColumn(len(m.candidates), m.offset, maxVisibleCandidates)
+	start, end := visibleWindow(len(m.candidates), m.offset, visibleCandidates)
+	scrollbar := scrollbarColumn(len(m.candidates), m.offset, visibleCandidates)
 	contentWidth := candidateWidth(m.candidates, m.cursor, 0)
 
 	for i := start; i < end; i++ {
@@ -129,15 +139,17 @@ func (m Model) View() string {
 			prefix = "> "
 		}
 		line := prefix + m.candidates[i].Display
+		var b strings.Builder
 		b.WriteString(padRight(line, contentWidth))
 		if scrollbar != nil {
 			b.WriteString(" ")
 			b.WriteRune(scrollbar[i-start])
 		}
-		b.WriteString("\n")
+		lines = append(lines, fitLine(b.String(), width))
 	}
 
-	return b.String()
+	lines = append(lines, emptyLines(max(0, visibleCandidates-(end-start)), width)...)
+	return joinLines(lines)
 }
 
 func visibleWindow(total, offset, maxVisible int) (start, end int) {
@@ -205,6 +217,31 @@ func padRight(s string, width int) string {
 	return s + strings.Repeat(" ", width-current)
 }
 
+func fitLine(s string, width int) string {
+	if width <= 0 {
+		return s
+	}
+
+	s = runewidth.Truncate(s, width, "")
+	return padRight(s, width)
+}
+
+func emptyLines(n, width int) []string {
+	if n <= 0 {
+		return nil
+	}
+
+	lines := make([]string, n)
+	for i := range lines {
+		lines[i] = fitLine("", width)
+	}
+	return lines
+}
+
+func joinLines(lines []string) string {
+	return strings.Join(lines, "\n") + "\n"
+}
+
 func (m *Model) refreshMatches() {
 	candidates, err := m.completer.Complete(context.Background(), m.commands, m.input.Value())
 	if err != nil {
@@ -221,7 +258,8 @@ func (m *Model) refreshMatches() {
 }
 
 func (m *Model) adjustOffset() {
-	if len(m.candidates) <= maxVisibleCandidates {
+	visibleCandidates := m.visibleCandidates()
+	if len(m.candidates) <= visibleCandidates {
 		m.offset = 0
 		return
 	}
@@ -231,9 +269,9 @@ func (m *Model) adjustOffset() {
 		return
 	}
 
-	bottom := m.offset + maxVisibleCandidates - 1
+	bottom := m.offset + visibleCandidates - 1
 	if m.cursor > bottom {
-		m.offset = m.cursor - maxVisibleCandidates + 1
+		m.offset = m.cursor - visibleCandidates + 1
 	}
 }
 
@@ -251,6 +289,36 @@ func (m *Model) acceptCandidate(item complete.Candidate) {
 	m.cursor = 0
 	m.offset = 0
 	m.refreshMatches()
+}
+
+func (m Model) renderWidth() int {
+	if m.width > 0 {
+		return m.width
+	}
+
+	return 80
+}
+
+func (m Model) visibleCandidates() int {
+	if m.height <= 0 {
+		return defaultVisibleCandidates
+	}
+
+	visible := m.height - 3
+	if visible < 0 {
+		return 0
+	}
+
+	return visible
+}
+
+func (m Model) renderInput() string {
+	value := m.input.Value()
+	if value == "" {
+		return "> " + m.input.Placeholder
+	}
+
+	return "> " + value
 }
 
 func replaceCurrentToken(line, replacement string) string {

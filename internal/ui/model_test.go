@@ -170,6 +170,44 @@ func TestCandidateWidthUsesLongestCandidate(t *testing.T) {
 	}
 }
 
+func TestCenterLines(t *testing.T) {
+	t.Parallel()
+
+	got := fitLine("abcd", 10)
+	want := "abcd      "
+	if got != want {
+		t.Fatalf("fitLine() = %q, want %q", got, want)
+	}
+}
+
+func TestRenderWidth(t *testing.T) {
+	t.Parallel()
+
+	model := Model{width: 120}
+	if got := model.renderWidth(); got != 120 {
+		t.Fatalf("renderWidth() = %d, want 120", got)
+	}
+
+	model.width = 0
+	if got := model.renderWidth(); got != 80 {
+		t.Fatalf("renderWidth() = %d, want 80", got)
+	}
+}
+
+func TestVisibleCandidates(t *testing.T) {
+	t.Parallel()
+
+	model := Model{height: 24}
+	if got := model.visibleCandidates(); got != 21 {
+		t.Fatalf("visibleCandidates() = %d, want 21", got)
+	}
+
+	model.height = 0
+	if got := model.visibleCandidates(); got != defaultVisibleCandidates {
+		t.Fatalf("visibleCandidates() = %d, want %d", got, defaultVisibleCandidates)
+	}
+}
+
 func TestAcceptCandidateResetsCursorForNextCandidateSet(t *testing.T) {
 	t.Parallel()
 
