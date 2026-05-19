@@ -3,10 +3,13 @@ package ui
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/term"
 	"github.com/gh-liu/tmcp/internal/complete"
 	"github.com/gh-liu/tmcp/internal/tmux"
 	"github.com/mattn/go-runewidth"
@@ -15,6 +18,8 @@ import (
 const (
 	defaultVisibleCandidates = 10
 )
+
+var getTerminalSize = term.GetSize
 
 type Model struct {
 	input      textinput.Model
@@ -57,6 +62,7 @@ func NewModel(commands []tmux.Command) Model {
 		commands:  commands,
 		completer: complete.NewCompleter(),
 	}
+	model.width, model.height = initialTerminalSize()
 	model.refreshMatches()
 	return model
 }
@@ -131,7 +137,10 @@ func (m Model) View() string {
 
 	start, end := visibleWindow(len(m.candidates), m.offset, visibleCandidates)
 	scrollbar := scrollbarColumn(len(m.candidates), m.offset, visibleCandidates)
-	contentWidth := candidateWidth(m.candidates, m.cursor, 0)
+	contentWidth := width
+	if scrollbar != nil {
+		contentWidth = max(0, width-2)
+	}
 
 	for i := start; i < end; i++ {
 		prefix := "  "
@@ -140,12 +149,12 @@ func (m Model) View() string {
 		}
 		line := prefix + m.candidates[i].Display
 		var b strings.Builder
-		b.WriteString(padRight(line, contentWidth))
+		b.WriteString(fitLine(line, contentWidth))
 		if scrollbar != nil {
 			b.WriteString(" ")
 			b.WriteRune(scrollbar[i-start])
 		}
-		lines = append(lines, fitLine(b.String(), width))
+		lines = append(lines, b.String())
 	}
 
 	lines = append(lines, emptyLines(max(0, visibleCandidates-(end-start)), width)...)
@@ -192,21 +201,6 @@ func scrollbarColumn(total, offset, maxVisible int) []rune {
 	}
 
 	return bar
-}
-
-func candidateWidth(candidates []complete.Candidate, cursor, start int) int {
-	width := 0
-	for i, candidate := range candidates {
-		prefix := "  "
-		if start+i == cursor {
-			prefix = "> "
-		}
-		lineWidth := runewidth.StringWidth(prefix + candidate.Display)
-		if lineWidth > width {
-			width = lineWidth
-		}
-	}
-	return width
 }
 
 func padRight(s string, width int) string {
@@ -337,4 +331,25 @@ func replaceCurrentToken(line, replacement string) string {
 	}
 
 	return trimmed[:lastSpace+1] + replacement
+}
+
+func initialTerminalSize() (int, int) {
+	for _, fd := range []uintptr{
+		os.Stdin.Fd(),
+		os.Stdout.Fd(),
+		os.Stderr.Fd(),
+	} {
+		width, height, err := getTerminalSize(fd)
+		if err == nil && width > 0 && height > 0 {
+			return width, height
+		}
+	}
+
+	width, _ := strconv.Atoi(os.Getenv("COLUMNS"))
+	height, _ := strconv.Atoi(os.Getenv("LINES"))
+	if width > 0 && height > 0 {
+		return width, height
+	}
+
+	return 0, 0
 }

@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"errors"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/gh-liu/tmcp/internal/complete"
@@ -154,22 +157,6 @@ func TestPadRight(t *testing.T) {
 	}
 }
 
-func TestCandidateWidthUsesLongestCandidate(t *testing.T) {
-	t.Parallel()
-
-	candidates := []complete.Candidate{
-		{Display: "short"},
-		{Display: "much longer candidate"},
-		{Display: "mid"},
-	}
-
-	got := candidateWidth(candidates, 0, 0)
-	want := len("> much longer candidate")
-	if got < want {
-		t.Fatalf("candidateWidth() = %d, want at least %d", got, want)
-	}
-}
-
 func TestCenterLines(t *testing.T) {
 	t.Parallel()
 
@@ -205,6 +192,139 @@ func TestVisibleCandidates(t *testing.T) {
 	model.height = 0
 	if got := model.visibleCandidates(); got != defaultVisibleCandidates {
 		t.Fatalf("visibleCandidates() = %d, want %d", got, defaultVisibleCandidates)
+	}
+}
+
+func TestViewPlacesScrollbarAtRightEdge(t *testing.T) {
+	t.Parallel()
+
+	model := Model{
+		width:  20,
+		height: 6,
+		candidates: []complete.Candidate{
+			{Display: "a"},
+			{Display: "b"},
+			{Display: "c"},
+			{Display: "d"},
+			{Display: "e"},
+		},
+	}
+
+	lines := strings.Split(strings.TrimSuffix(model.View(), "\n"), "\n")
+	if len(lines) < 3 {
+		t.Fatalf("View() returned %d lines, want at least 3", len(lines))
+	}
+
+	line := lines[2]
+	if got := len([]rune(line)); got != 20 {
+		t.Fatalf("candidate line width = %d, want 20", got)
+	}
+	if line[19:] != "█" {
+		t.Fatalf("candidate line right edge = %q, want scrollbar at last column", line[19:])
+	}
+}
+
+func TestInitialTerminalSize(t *testing.T) {
+	t.Parallel()
+
+	previous := getTerminalSize
+	previousColumns, hadColumns := os.LookupEnv("COLUMNS")
+	previousLines, hadLines := os.LookupEnv("LINES")
+	t.Cleanup(func() {
+		getTerminalSize = previous
+		if hadColumns {
+			_ = os.Setenv("COLUMNS", previousColumns)
+		} else {
+			_ = os.Unsetenv("COLUMNS")
+		}
+		if hadLines {
+			_ = os.Setenv("LINES", previousLines)
+		} else {
+			_ = os.Unsetenv("LINES")
+		}
+	})
+	_ = os.Unsetenv("COLUMNS")
+	_ = os.Unsetenv("LINES")
+
+	var seen []uintptr
+	getTerminalSize = func(fd uintptr) (int, int, error) {
+		seen = append(seen, fd)
+		if fd == os.Stdin.Fd() {
+			return 132, 40, nil
+		}
+		return 0, 0, errors.New("unexpected fd")
+	}
+
+	width, height := initialTerminalSize()
+	if width != 132 || height != 40 {
+		t.Fatalf("initialTerminalSize() = (%d, %d), want (132, 40)", width, height)
+	}
+	if len(seen) != 1 || seen[0] != os.Stdin.Fd() {
+		t.Fatalf("initialTerminalSize() probed %v, want only stdin", seen)
+	}
+}
+
+func TestInitialTerminalSizeFallsBackOnError(t *testing.T) {
+	t.Parallel()
+
+	previous := getTerminalSize
+	previousColumns, hadColumns := os.LookupEnv("COLUMNS")
+	previousLines, hadLines := os.LookupEnv("LINES")
+	t.Cleanup(func() {
+		getTerminalSize = previous
+		if hadColumns {
+			_ = os.Setenv("COLUMNS", previousColumns)
+		} else {
+			_ = os.Unsetenv("COLUMNS")
+		}
+		if hadLines {
+			_ = os.Setenv("LINES", previousLines)
+		} else {
+			_ = os.Unsetenv("LINES")
+		}
+	})
+	_ = os.Unsetenv("COLUMNS")
+	_ = os.Unsetenv("LINES")
+
+	getTerminalSize = func(uintptr) (int, int, error) {
+		return 0, 0, errors.New("boom")
+	}
+
+	width, height := initialTerminalSize()
+	if width != 0 || height != 0 {
+		t.Fatalf("initialTerminalSize() = (%d, %d), want (0, 0)", width, height)
+	}
+}
+
+func TestInitialTerminalSizeFallsBackToEnvironment(t *testing.T) {
+	t.Parallel()
+
+	previous := getTerminalSize
+	previousColumns, hadColumns := os.LookupEnv("COLUMNS")
+	previousLines, hadLines := os.LookupEnv("LINES")
+	t.Cleanup(func() {
+		getTerminalSize = previous
+		if hadColumns {
+			_ = os.Setenv("COLUMNS", previousColumns)
+		} else {
+			_ = os.Unsetenv("COLUMNS")
+		}
+		if hadLines {
+			_ = os.Setenv("LINES", previousLines)
+		} else {
+			_ = os.Unsetenv("LINES")
+		}
+	})
+
+	getTerminalSize = func(uintptr) (int, int, error) {
+		return 0, 0, errors.New("boom")
+	}
+	_ = os.Setenv("COLUMNS", "144")
+	_ = os.Setenv("LINES", "52")
+
+	width, height := initialTerminalSize()
+	if width != 144 || height != 52 {
+		t.Fatalf("initialTerminalSize() = (%d, %d), want (144, 52)", width, height)
 	}
 }
 
