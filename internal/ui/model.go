@@ -248,6 +248,8 @@ func (m *Model) acceptCandidate(item complete.Candidate) {
 	}
 
 	m.input.SetCursor(len(m.input.Value()))
+	m.cursor = 0
+	m.offset = 0
 	m.refreshMatches()
 }
 

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gh-liu/tmcp/internal/complete"
+	"github.com/gh-liu/tmcp/internal/tmux"
 )
 
 func TestVisibleWindow(t *testing.T) {
@@ -166,5 +167,42 @@ func TestCandidateWidthUsesLongestCandidate(t *testing.T) {
 	want := len("> much longer candidate")
 	if got < want {
 		t.Fatalf("candidateWidth() = %d, want at least %d", got, want)
+	}
+}
+
+func TestAcceptCandidateResetsCursorForNextCandidateSet(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{
+			Name:    "send-keys",
+			Aliases: []string{"send"},
+			Flags: []tmux.Flag{
+				{Name: "-F"},
+				{Name: "-t", Value: "target-pane"},
+			},
+		},
+	})
+
+	model.input.SetValue("send")
+	model.refreshMatches()
+	model.cursor = 1
+
+	model.acceptCandidate(complete.Candidate{
+		Value:   "send-keys",
+		Display: "send-keys (send)",
+		Kind:    complete.CandidateCommand,
+	})
+
+	if model.cursor != 0 {
+		t.Fatalf("cursor after acceptCandidate() = %d, want 0", model.cursor)
+	}
+
+	if len(model.candidates) == 0 {
+		t.Fatalf("candidates after acceptCandidate() = 0, want flags")
+	}
+
+	if model.candidates[0].Display != "-F" {
+		t.Fatalf("first candidate after acceptCandidate() = %q, want %q", model.candidates[0].Display, "-F")
 	}
 }
