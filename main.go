@@ -24,13 +24,13 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 
-		selection, err := ui.PickCommand(commands)
+		line, err := ui.ReadCommandLine(commands)
 		if err != nil {
 			return err
 		}
 
-		if selection != "" {
-			fmt.Println(selection)
+		if err := tmux.ExecuteLine(ctx, line); err != nil {
+			return err
 		}
 
 		return nil

@@ -23,7 +23,7 @@ type Model struct {
 	shouldQuit bool
 }
 
-func PickCommand(commands []tmux.Command) (string, error) {
+func ReadCommandLine(commands []tmux.Command) (string, error) {
 	model := NewModel(commands)
 	program := tea.NewProgram(model)
 
@@ -76,13 +76,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 			return m, nil
-		case tea.KeyEnter:
+		case tea.KeyTab:
 			if len(m.candidates) == 0 {
 				return m, nil
 			}
 
 			m.acceptCandidate(m.candidates[m.cursor])
 			return m, nil
+		case tea.KeyEnter:
+			m.selection = strings.TrimSpace(m.input.Value())
+			m.shouldQuit = true
+			return m, tea.Quit
 		}
 	}
 
