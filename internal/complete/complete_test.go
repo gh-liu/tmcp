@@ -114,3 +114,60 @@ func TestCompleteMergesSpecialTokens(t *testing.T) {
 		t.Fatalf("expected {last} in candidates, got %#v", got)
 	}
 }
+
+func TestCompleteExcludesAlreadySelectedFlags(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(nil)
+	commands := []tmux.Command{
+		{
+			Name: "send-keys",
+			Flags: []tmux.Flag{
+				{Name: "-F"},
+				{Name: "-N", Value: "repeat-count"},
+				{Name: "-t", Value: "target-pane"},
+			},
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "send-keys -F ")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	for _, candidate := range got {
+		if candidate.Value == "-F" {
+			t.Fatalf("unexpected reused flag in candidates: %#v", got)
+		}
+	}
+}
+
+func TestCompleteEditingNewFlagPrefixStillExcludesUsedFlags(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(nil)
+	commands := []tmux.Command{
+		{
+			Name: "send-keys",
+			Flags: []tmux.Flag{
+				{Name: "-F"},
+				{Name: "-N", Value: "repeat-count"},
+				{Name: "-t", Value: "target-pane"},
+			},
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "send-keys -F -")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	for _, candidate := range got {
+		if candidate.Value == "-F" {
+			t.Fatalf("unexpected reused flag in candidates: %#v", got)
+		}
+		if candidate.Value == "-N" && candidate.Display != "-N repeat-count" {
+			t.Fatalf("unexpected display for -N: %q", candidate.Display)
+		}
+	}
+}

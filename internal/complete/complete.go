@@ -39,16 +39,16 @@ func (c Completer) Complete(ctx context.Context, commands []tmux.Command, line s
 
 	switch {
 	case endsWithSpace && len(tokens) == 1:
-		return flagCandidates(command, ""), nil
+		return flagCandidates(command, "", usedFlags(command, tokens[1:], "")), nil
 	case endsWithSpace:
 		if flag, ok := findFlag(command, tokens[len(tokens)-1]); ok && flag.Value != "" {
 			return c.completeValue(ctx, flag.Value, "")
 		}
-		return flagCandidates(command, ""), nil
+		return flagCandidates(command, "", usedFlags(command, tokens[1:], "")), nil
 	default:
 		current := tokens[len(tokens)-1]
 		if strings.HasPrefix(current, "-") {
-			return flagCandidates(command, current), nil
+			return flagCandidates(command, current, usedFlags(command, tokens[1:len(tokens)-1], current)), nil
 		}
 
 		if len(tokens) >= 2 {
@@ -172,9 +172,13 @@ func commandCandidates(commands []tmux.Command, query string) []Candidate {
 	return result
 }
 
-func flagCandidates(command tmux.Command, prefix string) []Candidate {
+func flagCandidates(command tmux.Command, prefix string, used map[string]struct{}) []Candidate {
 	result := make([]Candidate, 0, len(command.Flags))
 	for _, flag := range command.Flags {
+		if _, ok := used[flag.Name]; ok {
+			continue
+		}
+
 		if prefix != "" && !strings.HasPrefix(flag.Name, prefix) {
 			continue
 		}
@@ -192,6 +196,21 @@ func flagCandidates(command tmux.Command, prefix string) []Candidate {
 	}
 
 	return result
+}
+
+func usedFlags(command tmux.Command, tokens []string, keep string) map[string]struct{} {
+	used := make(map[string]struct{})
+	for _, token := range tokens {
+		flag, ok := findFlag(command, token)
+		if !ok {
+			continue
+		}
+		if flag.Name == keep {
+			continue
+		}
+		used[flag.Name] = struct{}{}
+	}
+	return used
 }
 
 func findCommand(commands []tmux.Command, token string) (tmux.Command, bool) {
