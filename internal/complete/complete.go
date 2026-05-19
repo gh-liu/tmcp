@@ -62,12 +62,22 @@ func (c Completer) Complete(ctx context.Context, commands []tmux.Command, line s
 }
 
 func (c Completer) completeValue(ctx context.Context, placeholder, prefix string) ([]Candidate, error) {
-	provider, ok := c.resolveProvider(placeholder)
-	if !ok {
+	key := providerKey(placeholder)
+	if key == "" {
 		return nil, nil
 	}
 
-	return provider.Candidates(ctx, prefix)
+	provider, ok := c.providers[key]
+	if !ok {
+		return specialTokenCandidates(key, prefix), nil
+	}
+
+	candidates, err := provider.Candidates(ctx, prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	return mergeCandidates(candidates, specialTokenCandidates(key, prefix)), nil
 }
 
 func (c Completer) resolveProvider(placeholder string) (Provider, bool) {
@@ -91,6 +101,45 @@ func providerKey(placeholder string) string {
 	default:
 		return ""
 	}
+}
+
+func specialTokenCandidates(key, prefix string) []Candidate {
+	tokens := specialTokens[key]
+	candidates := make([]Candidate, 0, len(tokens))
+
+	for _, token := range tokens {
+		if prefix != "" && !strings.HasPrefix(token, prefix) {
+			continue
+		}
+
+		candidates = append(candidates, Candidate{
+			Value:   token,
+			Display: token,
+			Kind:    CandidateValue,
+		})
+	}
+
+	return candidates
+}
+
+func mergeCandidates(primary, secondary []Candidate) []Candidate {
+	seen := make(map[string]struct{}, len(primary)+len(secondary))
+	merged := make([]Candidate, 0, len(primary)+len(secondary))
+
+	for _, candidate := range primary {
+		merged = append(merged, candidate)
+		seen[candidate.Value] = struct{}{}
+	}
+
+	for _, candidate := range secondary {
+		if _, ok := seen[candidate.Value]; ok {
+			continue
+		}
+		merged = append(merged, candidate)
+		seen[candidate.Value] = struct{}{}
+	}
+
+	return merged
 }
 
 func commandCandidates(commands []tmux.Command, query string) []Candidate {

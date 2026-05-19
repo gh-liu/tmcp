@@ -1,0 +1,36 @@
+package complete
+
+var specialTokens = map[string][]string{
+	"pane": {
+		"!",
+		"+",
+		"-",
+		"{last}",
+		"{next}",
+		"{previous}",
+		"{top}",
+		"{bottom}",
+		"{left}",
+		"{right}",
+		"{top-left}",
+		"{top-right}",
+		"{bottom-left}",
+		"{bottom-right}",
+		"{up-of}",
+		"{down-of}",
+		"{left-of}",
+		"{right-of}",
+	},
+	"window": {
+		"^",
+		"$",
+		"!",
+		"+",
+		"-",
+		"{start}",
+		"{end}",
+		"{last}",
+		"{next}",
+		"{previous}",
+	},
+}

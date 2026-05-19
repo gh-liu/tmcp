@@ -60,11 +60,57 @@ func TestCompleteDelegatesToProviderForFlagValue(t *testing.T) {
 		t.Fatalf("Complete() error = %v", err)
 	}
 
-	if len(got) != 1 {
-		t.Fatalf("len(Complete()) = %d, want 1", len(got))
+	if len(got) < 1 {
+		t.Fatalf("len(Complete()) = %d, want at least 1", len(got))
 	}
 
 	if got[0].Value != "main:editor.0" {
 		t.Fatalf("got[0].Value = %q, want %q", got[0].Value, "main:editor.0")
+	}
+}
+
+func TestCompleteMergesSpecialTokens(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(map[string]Provider{
+		"pane": providerFunc(func(context.Context, string) ([]Candidate, error) {
+			return []Candidate{
+				{Value: "main:editor.0", Display: "main:editor.0", Kind: CandidateValue},
+			}, nil
+		}),
+	})
+
+	commands := []tmux.Command{
+		{
+			Name: "kill-pane",
+			Flags: []tmux.Flag{
+				{Name: "-t", Value: "target-pane"},
+			},
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "kill-pane -t ")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	if len(got) < 2 {
+		t.Fatalf("len(Complete()) = %d, want at least 2", len(got))
+	}
+
+	if got[0].Value != "main:editor.0" {
+		t.Fatalf("got[0].Value = %q, want %q", got[0].Value, "main:editor.0")
+	}
+
+	found := false
+	for _, candidate := range got {
+		if candidate.Value == "{last}" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected {last} in candidates, got %#v", got)
 	}
 }
