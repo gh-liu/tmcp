@@ -66,15 +66,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			m.shouldQuit = true
 			return m, tea.Quit
-		case tea.KeyUp:
-			if m.cursor > 0 {
-				m.cursor--
-			}
+		case tea.KeyUp, tea.KeyCtrlP:
+			m.moveCursor(-1)
 			return m, nil
-		case tea.KeyDown:
-			if m.cursor+1 < len(m.candidates) {
-				m.cursor++
-			}
+		case tea.KeyDown, tea.KeyCtrlN:
+			m.moveCursor(1)
 			return m, nil
 		case tea.KeyTab:
 			if len(m.candidates) == 0 {
@@ -95,6 +91,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.refreshMatches()
 
 	return m, cmd
+}
+
+func (m *Model) moveCursor(delta int) {
+	next := m.cursor + delta
+	if next < 0 || next >= len(m.candidates) {
+		return
+	}
+
+	m.cursor = next
 }
 
 func (m Model) View() string {
