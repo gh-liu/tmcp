@@ -16,7 +16,8 @@ type Command struct {
 }
 
 type Flag struct {
-	Raw string `json:"raw"`
+	Name  string `json:"name"`
+	Value string `json:"value,omitempty"`
 }
 
 func ListCommands(ctx context.Context) ([]Command, error) {
@@ -82,7 +83,7 @@ func ParseCommandLine(line string) (Command, error) {
 		if part[0] == '[' && part[len(part)-1] == ']' {
 			raw := part[1 : len(part)-1]
 			if strings.HasPrefix(raw, "-") {
-				command.Flags = append(command.Flags, Flag{Raw: raw})
+				command.Flags = append(command.Flags, parseFlagGroup(raw)...)
 			} else {
 				command.Positional = append(command.Positional, raw)
 			}
@@ -128,4 +129,35 @@ func splitSignature(signature string) []string {
 	}
 
 	return parts
+}
+
+func parseFlagGroup(raw string) []Flag {
+	spec, value, hasValue := strings.Cut(raw, " ")
+	specs := strings.Split(spec, "|")
+	flags := make([]Flag, 0, len(specs))
+
+	for _, item := range specs {
+		if item == "" {
+			continue
+		}
+
+		if !hasValue && isCombinedShortFlags(item) {
+			for _, ch := range item[1:] {
+				flags = append(flags, Flag{Name: "-" + string(ch)})
+			}
+			continue
+		}
+
+		flag := Flag{Name: item}
+		if hasValue {
+			flag.Value = strings.TrimSpace(value)
+		}
+		flags = append(flags, flag)
+	}
+
+	return flags
+}
+
+func isCombinedShortFlags(spec string) bool {
+	return strings.HasPrefix(spec, "-") && !strings.HasPrefix(spec, "--") && len(spec) > 2
 }

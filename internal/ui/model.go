@@ -15,7 +15,7 @@ const maxVisibleCandidates = 10
 type Model struct {
 	input      textinput.Model
 	commands   []tmux.Command
-	matches    []tmux.Command
+	candidates []candidate
 	cursor     int
 	selection  string
 	shouldQuit bool
@@ -69,18 +69,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case tea.KeyDown:
-			if m.cursor+1 < len(m.matches) {
+			if m.cursor+1 < len(m.candidates) {
 				m.cursor++
 			}
 			return m, nil
 		case tea.KeyEnter:
-			if len(m.matches) == 0 {
-				m.selection = strings.TrimSpace(m.input.Value())
-			} else {
-				m.selection = m.matches[m.cursor].Name
+			if len(m.candidates) == 0 {
+				return m, nil
 			}
-			m.shouldQuit = true
-			return m, tea.Quit
+
+			m.acceptCandidate(m.candidates[m.cursor])
+			return m, nil
 		}
 	}
 
@@ -101,12 +100,12 @@ func (m Model) View() string {
 	b.WriteString(m.input.View())
 	b.WriteString("\n\n")
 
-	if len(m.matches) == 0 {
+	if len(m.candidates) == 0 {
 		b.WriteString("  no matches\n")
 		return b.String()
 	}
 
-	visible := len(m.matches)
+	visible := len(m.candidates)
 	if visible > maxVisibleCandidates {
 		visible = maxVisibleCandidates
 	}
@@ -117,7 +116,7 @@ func (m Model) View() string {
 			prefix = "> "
 		}
 		b.WriteString(prefix)
-		b.WriteString(formatCommand(m.matches[i]))
+		b.WriteString(m.candidates[i].Display)
 		b.WriteString("\n")
 	}
 
@@ -125,27 +124,83 @@ func (m Model) View() string {
 }
 
 func (m *Model) refreshMatches() {
-	query := strings.TrimSpace(m.input.Value())
-	if query == "" {
-		m.matches = append([]tmux.Command(nil), m.commands...)
-		if m.cursor >= len(m.matches) {
-			m.cursor = max(0, len(m.matches)-1)
+	line := m.input.Value()
+	tokens := strings.Fields(line)
+	endsWithSpace := strings.HasSuffix(line, " ")
+
+	switch {
+	case len(tokens) == 0:
+		m.candidates = m.commandCandidates("")
+	case len(tokens) == 1 && !endsWithSpace:
+		m.candidates = m.commandCandidates(tokens[0])
+	default:
+		command, ok := findCommand(m.commands, tokens[0])
+		if !ok {
+			m.candidates = nil
+			break
 		}
-		return
+
+		if endsWithSpace && len(tokens) == 1 {
+			m.candidates = flagCandidates(command, "")
+			break
+		}
+
+		current := tokens[len(tokens)-1]
+		if strings.HasPrefix(current, "-") {
+			m.candidates = flagCandidates(command, current)
+			break
+		}
+
+		m.candidates = nil
+	}
+
+	if m.cursor >= len(m.candidates) {
+		m.cursor = max(0, len(m.candidates)-1)
+	}
+}
+
+func (m *Model) commandCandidates(query string) []candidate {
+	if strings.TrimSpace(query) == "" {
+		result := make([]candidate, 0, len(m.commands))
+		for _, command := range m.commands {
+			result = append(result, candidate{
+				Value:   command.Name,
+				Display: formatCommand(command),
+				Kind:    candidateCommand,
+			})
+		}
+		return result
 	}
 
 	values := make(commandValues, len(m.commands))
 	copy(values, m.commands)
 
 	found := fuzzy.FindFrom(query, values)
-	m.matches = m.matches[:0]
+	result := make([]candidate, 0, len(found))
 	for _, match := range found {
-		m.matches = append(m.matches, m.commands[match.Index])
+		command := m.commands[match.Index]
+		result = append(result, candidate{
+			Value:   command.Name,
+			Display: formatCommand(command),
+			Kind:    candidateCommand,
+		})
 	}
 
-	if m.cursor >= len(m.matches) {
-		m.cursor = max(0, len(m.matches)-1)
+	return result
+}
+
+func (m *Model) acceptCandidate(item candidate) {
+	line := m.input.Value()
+
+	switch item.Kind {
+	case candidateCommand:
+		m.input.SetValue(item.Value + " ")
+	case candidateFlag:
+		m.input.SetValue(replaceCurrentToken(line, item.Value+" "))
 	}
+
+	m.input.SetCursor(len(m.input.Value()))
+	m.refreshMatches()
 }
 
 func formatCommand(command tmux.Command) string {
@@ -169,4 +224,73 @@ func (c commandValues) String(i int) string {
 	}
 
 	return command.Name + " " + strings.Join(command.Aliases, " ")
+}
+
+type candidateKind string
+
+const (
+	candidateCommand candidateKind = "command"
+	candidateFlag    candidateKind = "flag"
+)
+
+type candidate struct {
+	Value   string
+	Display string
+	Kind    candidateKind
+}
+
+func findCommand(commands []tmux.Command, token string) (tmux.Command, bool) {
+	for _, command := range commands {
+		if command.Name == token {
+			return command, true
+		}
+
+		for _, alias := range command.Aliases {
+			if alias == token {
+				return command, true
+			}
+		}
+	}
+
+	return tmux.Command{}, false
+}
+
+func flagCandidates(command tmux.Command, prefix string) []candidate {
+	result := make([]candidate, 0, len(command.Flags))
+	for _, flag := range command.Flags {
+		if prefix != "" && !strings.HasPrefix(flag.Name, prefix) {
+			continue
+		}
+
+		display := flag.Name
+		if flag.Value != "" {
+			display += " " + flag.Value
+		}
+
+		result = append(result, candidate{
+			Value:   flag.Name,
+			Display: display,
+			Kind:    candidateFlag,
+		})
+	}
+
+	return result
+}
+
+func replaceCurrentToken(line, replacement string) string {
+	if line == "" {
+		return replacement
+	}
+
+	trimmed := strings.TrimRight(line, " \t")
+	if trimmed == "" || strings.HasSuffix(line, " ") {
+		return line + replacement
+	}
+
+	lastSpace := strings.LastIndexAny(trimmed, " \t")
+	if lastSpace == -1 {
+		return replacement
+	}
+
+	return trimmed[:lastSpace+1] + replacement
 }

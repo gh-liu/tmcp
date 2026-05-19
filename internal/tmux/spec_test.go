@@ -17,10 +17,13 @@ func TestParseCommandLine(t *testing.T) {
 				Name:    "attach-session",
 				Aliases: []string{"attach"},
 				Flags: []Flag{
-					{Raw: "-dErx"},
-					{Raw: "-c working-directory"},
-					{Raw: "-f flags"},
-					{Raw: "-t target-session"},
+					{Name: "-d"},
+					{Name: "-E"},
+					{Name: "-r"},
+					{Name: "-x"},
+					{Name: "-c", Value: "working-directory"},
+					{Name: "-f", Value: "flags"},
+					{Name: "-t", Value: "target-session"},
 				},
 			},
 		},
@@ -31,17 +34,17 @@ func TestParseCommandLine(t *testing.T) {
 				Name:    "display-menu",
 				Aliases: []string{"menu"},
 				Flags: []Flag{
-					{Raw: "-O"},
-					{Raw: "-b border-lines"},
-					{Raw: "-c target-client"},
-					{Raw: "-C starting-choice"},
-					{Raw: "-H selected-style"},
-					{Raw: "-s style"},
-					{Raw: "-S border-style"},
-					{Raw: "-t target-pane"},
-					{Raw: "-T title"},
-					{Raw: "-x position"},
-					{Raw: "-y position"},
+					{Name: "-O"},
+					{Name: "-b", Value: "border-lines"},
+					{Name: "-c", Value: "target-client"},
+					{Name: "-C", Value: "starting-choice"},
+					{Name: "-H", Value: "selected-style"},
+					{Name: "-s", Value: "style"},
+					{Name: "-S", Value: "border-style"},
+					{Name: "-t", Value: "target-pane"},
+					{Name: "-T", Value: "title"},
+					{Name: "-x", Value: "position"},
+					{Name: "-y", Value: "position"},
 				},
 				Positional: []string{"name", "key", "command", "..."},
 			},
@@ -53,10 +56,16 @@ func TestParseCommandLine(t *testing.T) {
 				Name:    "send-keys",
 				Aliases: []string{"send"},
 				Flags: []Flag{
-					{Raw: "-FHKlMRX"},
-					{Raw: "-c target-client"},
-					{Raw: "-N repeat-count"},
-					{Raw: "-t target-pane"},
+					{Name: "-F"},
+					{Name: "-H"},
+					{Name: "-K"},
+					{Name: "-l"},
+					{Name: "-M"},
+					{Name: "-R"},
+					{Name: "-X"},
+					{Name: "-c", Value: "target-client"},
+					{Name: "-N", Value: "repeat-count"},
+					{Name: "-t", Value: "target-pane"},
 				},
 				Positional: []string{"key", "..."},
 			},
@@ -68,9 +77,10 @@ func TestParseCommandLine(t *testing.T) {
 				Name:    "bind-key",
 				Aliases: []string{"bind"},
 				Flags: []Flag{
-					{Raw: "-nr"},
-					{Raw: "-T key-table"},
-					{Raw: "-N note"},
+					{Name: "-n"},
+					{Name: "-r"},
+					{Name: "-T", Value: "key-table"},
+					{Name: "-N", Value: "note"},
 				},
 				Positional: []string{"key", "command [arguments]"},
 			},
@@ -129,6 +139,44 @@ func TestParseCommands(t *testing.T) {
 
 	if got[1].Name != "list-sessions" {
 		t.Fatalf("got[1].Name = %q, want %q", got[1].Name, "list-sessions")
+	}
+}
+
+func TestParseFlagGroup(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		raw  string
+		want []Flag
+	}{
+		{
+			name: "combined short flags",
+			raw:  "-abdP",
+			want: []Flag{{Name: "-a"}, {Name: "-b"}, {Name: "-d"}, {Name: "-P"}},
+		},
+		{
+			name: "flag with value",
+			raw:  "-t target-pane",
+			want: []Flag{{Name: "-t", Value: "target-pane"}},
+		},
+		{
+			name: "mutually exclusive flags",
+			raw:  "-L|-S|-U",
+			want: []Flag{{Name: "-L"}, {Name: "-S"}, {Name: "-U"}},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := parseFlagGroup(tc.raw)
+			if !equalFlags(got, tc.want) {
+				t.Fatalf("parseFlagGroup() = %#v, want %#v", got, tc.want)
+			}
+		})
 	}
 }
 
