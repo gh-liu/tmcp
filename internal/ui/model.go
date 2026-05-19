@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gh-liu/tmcp/internal/complete"
 	"github.com/gh-liu/tmcp/internal/tmux"
+	"github.com/mattn/go-runewidth"
 )
 
 const maxVisibleCandidates = 10
@@ -19,6 +20,7 @@ type Model struct {
 	completer  complete.Completer
 	candidates []complete.Candidate
 	cursor     int
+	offset     int
 	selection  string
 	shouldQuit bool
 }
@@ -100,6 +102,7 @@ func (m *Model) moveCursor(delta int) {
 	}
 
 	m.cursor = next
+	m.adjustOffset()
 }
 
 func (m Model) View() string {
@@ -117,22 +120,90 @@ func (m Model) View() string {
 		return b.String()
 	}
 
-	visible := len(m.candidates)
-	if visible > maxVisibleCandidates {
-		visible = maxVisibleCandidates
-	}
+	start, end := visibleWindow(len(m.candidates), m.offset, maxVisibleCandidates)
+	scrollbar := scrollbarColumn(len(m.candidates), m.offset, maxVisibleCandidates)
+	contentWidth := candidateWidth(m.candidates, m.cursor, 0)
 
-	for i := 0; i < visible; i++ {
+	for i := start; i < end; i++ {
 		prefix := "  "
 		if i == m.cursor {
 			prefix = "> "
 		}
-		b.WriteString(prefix)
-		b.WriteString(m.candidates[i].Display)
+		line := prefix + m.candidates[i].Display
+		b.WriteString(padRight(line, contentWidth))
+		if scrollbar != nil {
+			b.WriteString(" ")
+			b.WriteRune(scrollbar[i-start])
+		}
 		b.WriteString("\n")
 	}
 
 	return b.String()
+}
+
+func visibleWindow(total, offset, maxVisible int) (start, end int) {
+	if total <= maxVisible {
+		return 0, total
+	}
+
+	start = max(0, offset)
+	end = start + maxVisible
+	if end > total {
+		end = total
+		start = end - maxVisible
+	}
+
+	return start, end
+}
+
+func scrollbarColumn(total, offset, maxVisible int) []rune {
+	if total <= maxVisible {
+		return nil
+	}
+
+	height := min(total, maxVisible)
+	bar := make([]rune, height)
+	for i := range bar {
+		bar[i] = '│'
+	}
+
+	thumbSize := max(1, maxVisible*height/total)
+	maxOffset := total - maxVisible
+	maxThumbStart := height - thumbSize
+
+	thumbStart := 0
+	if maxOffset > 0 && maxThumbStart > 0 {
+		thumbStart = offset * maxThumbStart / maxOffset
+	}
+
+	for i := thumbStart; i < thumbStart+thumbSize && i < len(bar); i++ {
+		bar[i] = '█'
+	}
+
+	return bar
+}
+
+func candidateWidth(candidates []complete.Candidate, cursor, start int) int {
+	width := 0
+	for i, candidate := range candidates {
+		prefix := "  "
+		if start+i == cursor {
+			prefix = "> "
+		}
+		lineWidth := runewidth.StringWidth(prefix + candidate.Display)
+		if lineWidth > width {
+			width = lineWidth
+		}
+	}
+	return width
+}
+
+func padRight(s string, width int) string {
+	current := runewidth.StringWidth(s)
+	if current >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-current)
 }
 
 func (m *Model) refreshMatches() {
@@ -145,6 +216,25 @@ func (m *Model) refreshMatches() {
 
 	if m.cursor >= len(m.candidates) {
 		m.cursor = max(0, len(m.candidates)-1)
+	}
+
+	m.adjustOffset()
+}
+
+func (m *Model) adjustOffset() {
+	if len(m.candidates) <= maxVisibleCandidates {
+		m.offset = 0
+		return
+	}
+
+	if m.cursor < m.offset {
+		m.offset = m.cursor
+		return
+	}
+
+	bottom := m.offset + maxVisibleCandidates - 1
+	if m.cursor > bottom {
+		m.offset = m.cursor - maxVisibleCandidates + 1
 	}
 }
 
