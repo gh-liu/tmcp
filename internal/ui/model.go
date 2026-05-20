@@ -147,7 +147,7 @@ func (m Model) View() string {
 		if i == m.cursor {
 			prefix = "> "
 		}
-		line := prefix + m.candidates[i].Display
+		line := prefix + renderCandidateDisplay(m.candidates[i])
 		var b strings.Builder
 		b.WriteString(fitLine(line, contentWidth))
 		if scrollbar != nil {
@@ -362,6 +362,19 @@ func replaceCurrentToken(line, replacement string) string {
 
 func stylePlaceholder(s string) string {
 	return "\x1b[90m" + s + "\x1b[0m"
+}
+
+func renderCandidateDisplay(candidate complete.Candidate) string {
+	if candidate.Kind != complete.CandidateFlag {
+		return candidate.Display
+	}
+
+	flag, value, ok := strings.Cut(candidate.Display, " ")
+	if !ok || value == "" {
+		return candidate.Display
+	}
+
+	return flag + " " + stylePlaceholder(value)
 }
 
 func findCommandSpec(commands []tmux.Command, token string) (tmux.Command, bool) {

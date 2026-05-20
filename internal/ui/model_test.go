@@ -435,3 +435,34 @@ func TestRenderInputDoesNotShowPendingFlagValuePlaceholderForUnknownFlag(t *test
 		t.Fatalf("renderInput() = %q, did not expect pending value placeholder", got)
 	}
 }
+
+func TestRenderCandidateDisplayStylesFlagValuePlaceholder(t *testing.T) {
+	t.Parallel()
+
+	got := renderCandidateDisplay(complete.Candidate{
+		Display: "-t target-pane",
+		Kind:    complete.CandidateFlag,
+	})
+
+	if !strings.Contains(got, "-t ") {
+		t.Fatalf("renderCandidateDisplay() = %q, want flag prefix", got)
+	}
+	if !strings.Contains(got, "target-pane") {
+		t.Fatalf("renderCandidateDisplay() = %q, want placeholder text", got)
+	}
+	if got == "-t target-pane" {
+		t.Fatalf("renderCandidateDisplay() = %q, want styled placeholder", got)
+	}
+}
+
+func TestRenderCandidateDisplayLeavesBareFlagUnchanged(t *testing.T) {
+	t.Parallel()
+
+	got := renderCandidateDisplay(complete.Candidate{
+		Display: "-F",
+		Kind:    complete.CandidateFlag,
+	})
+	if got != "-F" {
+		t.Fatalf("renderCandidateDisplay() = %q, want %q", got, "-F")
+	}
+}
