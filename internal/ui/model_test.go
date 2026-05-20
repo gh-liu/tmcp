@@ -466,3 +466,49 @@ func TestRenderCandidateDisplayLeavesBareFlagUnchanged(t *testing.T) {
 		t.Fatalf("renderCandidateDisplay() = %q, want %q", got, "-F")
 	}
 }
+
+func TestRenderCandidateDisplayAddsPlaceholderNote(t *testing.T) {
+	t.Parallel()
+
+	got := renderCandidateDisplay(complete.Candidate{
+		Display: "-t target-pane",
+		Kind:    complete.CandidateFlag,
+	})
+
+	if !strings.Contains(got, "pane target") {
+		t.Fatalf("renderCandidateDisplay() = %q, want placeholder note", got)
+	}
+}
+
+func TestPlaceholderNote(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		placeholder string
+		want        string
+		ok          bool
+	}{
+		{placeholder: "target-pane", want: "pane target", ok: true},
+		{placeholder: "target-window", want: "window target", ok: true},
+		{placeholder: "target-session", want: "session target", ok: true},
+		{placeholder: "target-client", want: "client target", ok: true},
+		{placeholder: "format", want: "tmux format", ok: true},
+		{placeholder: "filter", want: "format expression", ok: true},
+		{placeholder: "path", want: "filesystem path", ok: true},
+		{placeholder: "shell-command", want: "shell command", ok: true},
+		{placeholder: "layout-name", want: "layout preset", ok: true},
+		{placeholder: "repeat-count", want: "", ok: false},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.placeholder, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := placeholderNote(tc.placeholder)
+			if ok != tc.ok || got != tc.want {
+				t.Fatalf("placeholderNote(%q) = (%q, %v), want (%q, %v)", tc.placeholder, got, ok, tc.want, tc.ok)
+			}
+		})
+	}
+}

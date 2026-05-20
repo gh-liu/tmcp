@@ -374,7 +374,36 @@ func renderCandidateDisplay(candidate complete.Candidate) string {
 		return candidate.Display
 	}
 
-	return flag + " " + stylePlaceholder(value)
+	rendered := flag + " " + stylePlaceholder(value)
+	if note, ok := placeholderNote(value); ok {
+		rendered += "  " + stylePlaceholder(note)
+	}
+	return rendered
+}
+
+func placeholderNote(placeholder string) (string, bool) {
+	switch placeholder {
+	case "target-session":
+		return "session target", true
+	case "target-window", "src-window", "dst-window":
+		return "window target", true
+	case "target-pane", "src-pane", "dst-pane":
+		return "pane target", true
+	case "target-client":
+		return "client target", true
+	case "format":
+		return "tmux format", true
+	case "filter":
+		return "format expression", true
+	case "path", "start-directory", "working-directory":
+		return "filesystem path", true
+	case "shell-command":
+		return "shell command", true
+	case "layout-name":
+		return "layout preset", true
+	}
+
+	return "", false
 }
 
 func findCommandSpec(commands []tmux.Command, token string) (tmux.Command, bool) {
