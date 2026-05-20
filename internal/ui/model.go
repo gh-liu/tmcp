@@ -441,14 +441,6 @@ func commandNote(command string) (string, bool) {
 
 func placeholderNote(placeholder string) (string, bool) {
 	switch placeholder {
-	case "target-session":
-		return "session target", true
-	case "target-window", "src-window", "dst-window":
-		return "window target", true
-	case "target-pane", "src-pane", "dst-pane":
-		return "pane target", true
-	case "target-client":
-		return "client target", true
 	case "format":
 		return "tmux format", true
 	case "filter":

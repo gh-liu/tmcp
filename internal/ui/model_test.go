@@ -471,11 +471,11 @@ func TestRenderCandidateDisplayAddsPlaceholderNote(t *testing.T) {
 	t.Parallel()
 
 	got := renderCandidateDisplay(complete.Candidate{
-		Display: "-t target-pane",
+		Display: "-F format",
 		Kind:    complete.CandidateFlag,
 	})
 
-	if !strings.Contains(got, "pane target") {
+	if !strings.Contains(got, "tmux format") {
 		t.Fatalf("renderCandidateDisplay() = %q, want placeholder note", got)
 	}
 }
@@ -488,15 +488,12 @@ func TestPlaceholderNote(t *testing.T) {
 		want        string
 		ok          bool
 	}{
-		{placeholder: "target-pane", want: "pane target", ok: true},
-		{placeholder: "target-window", want: "window target", ok: true},
-		{placeholder: "target-session", want: "session target", ok: true},
-		{placeholder: "target-client", want: "client target", ok: true},
 		{placeholder: "format", want: "tmux format", ok: true},
 		{placeholder: "filter", want: "format expression", ok: true},
 		{placeholder: "path", want: "filesystem path", ok: true},
 		{placeholder: "shell-command", want: "shell command", ok: true},
 		{placeholder: "layout-name", want: "layout preset", ok: true},
+		{placeholder: "target-pane", want: "", ok: false},
 		{placeholder: "repeat-count", want: "", ok: false},
 	}
 
