@@ -115,15 +115,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlD:
 			m.movePage(1)
 			return m, nil
+		case tea.KeyPgUp:
+			m.movePage(-1)
+			return m, nil
+		case tea.KeyPgDown:
+			m.movePage(1)
+			return m, nil
+		case tea.KeyRight, tea.KeyCtrlF:
+			if !m.acceptCurrentCandidate() {
+				return m, nil
+			}
+			return m, nil
 		case tea.KeyCtrlR:
 			m.toggleHistoryMode()
 			return m, nil
 		case tea.KeyTab:
-			if len(m.candidates) == 0 {
+			if !m.acceptCurrentCandidate() {
 				return m, nil
 			}
-
-			m.acceptCandidate(m.candidates[m.cursor])
 			return m, nil
 		case tea.KeyEnter:
 			m.selection = strings.TrimSpace(m.input.Value())
@@ -169,6 +178,15 @@ func (m *Model) movePage(direction int) {
 
 	m.cursor = next
 	m.adjustOffset()
+}
+
+func (m *Model) acceptCurrentCandidate() bool {
+	if len(m.candidates) == 0 || m.cursor < 0 || m.cursor >= len(m.candidates) {
+		return false
+	}
+
+	m.acceptCandidate(m.candidates[m.cursor])
+	return true
 }
 
 func (m Model) View() string {

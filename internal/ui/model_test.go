@@ -325,8 +325,6 @@ func noteStartColumn(t *testing.T, line, note string) int {
 }
 
 func TestInitialTerminalSize(t *testing.T) {
-	t.Parallel()
-
 	previous := getTerminalSize
 	previousColumns, hadColumns := os.LookupEnv("COLUMNS")
 	previousLines, hadLines := os.LookupEnv("LINES")
@@ -365,8 +363,6 @@ func TestInitialTerminalSize(t *testing.T) {
 }
 
 func TestInitialTerminalSizeFallsBackOnError(t *testing.T) {
-	t.Parallel()
-
 	previous := getTerminalSize
 	previousColumns, hadColumns := os.LookupEnv("COLUMNS")
 	previousLines, hadLines := os.LookupEnv("LINES")
@@ -397,8 +393,6 @@ func TestInitialTerminalSizeFallsBackOnError(t *testing.T) {
 }
 
 func TestInitialTerminalSizeFallsBackToEnvironment(t *testing.T) {
-	t.Parallel()
-
 	previous := getTerminalSize
 	previousColumns, hadColumns := os.LookupEnv("COLUMNS")
 	previousLines, hadLines := os.LookupEnv("LINES")
@@ -530,6 +524,45 @@ func TestRenderInputShowsGhostTextForSelectedValueCandidate(t *testing.T) {
 	}
 	if model.input.Value() != "select-layout main-" {
 		t.Fatalf("input value = %q, want unchanged typed input", model.input.Value())
+	}
+}
+
+func TestRightAcceptsCurrentGhostCandidate(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{Name: "select-layout"},
+		{Name: "select-pane"},
+		{Name: "select-window"},
+	})
+	model.input.SetValue("select-")
+	model.refreshMatches()
+
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRight})
+	got := updated.(Model)
+
+	if got.input.Value() != "select-pane " {
+		t.Fatalf("input after Right = %q, want %q", got.input.Value(), "select-pane ")
+	}
+}
+
+func TestCtrlFAcceptsCurrentGhostCandidate(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{
+			Name:       "select-layout",
+			Positional: []string{"layout-name"},
+		},
+	})
+	model.input.SetValue("select-layout main-")
+	model.refreshMatches()
+
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	got := updated.(Model)
+
+	if got.input.Value() != "select-layout main-horizontal " {
+		t.Fatalf("input after Ctrl-F = %q, want %q", got.input.Value(), "select-layout main-horizontal ")
 	}
 }
 
@@ -676,6 +709,38 @@ func TestCtrlDUHalfPageScrollCandidates(t *testing.T) {
 	got = updated.(Model)
 	if got.cursor != 0 {
 		t.Fatalf("cursor after Ctrl-U = %d, want 0", got.cursor)
+	}
+}
+
+func TestPageUpDownHalfPageScrollCandidates(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{Name: "select-layout"},
+		{Name: "select-pane"},
+		{Name: "select-window"},
+		{Name: "send-keys"},
+		{Name: "split-window"},
+		{Name: "switch-client"},
+		{Name: "show-options"},
+		{Name: "show-hooks"},
+		{Name: "show-messages"},
+		{Name: "show-buffer"},
+		{Name: "show-environment"},
+		{Name: "show-window-options"},
+	})
+	model.height = 13
+
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	got := updated.(Model)
+	if got.cursor != 5 {
+		t.Fatalf("cursor after PageDown = %d, want 5", got.cursor)
+	}
+
+	updated, _ = got.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	got = updated.(Model)
+	if got.cursor != 0 {
+		t.Fatalf("cursor after PageUp = %d, want 0", got.cursor)
 	}
 }
 
