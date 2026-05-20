@@ -191,11 +191,159 @@ func flagCandidates(command tmux.Command, prefix string, used map[string]struct{
 		result = append(result, Candidate{
 			Value:   flag.Name,
 			Display: display,
+			Note:    flagNote(command.Name, flag.Name),
 			Kind:    CandidateFlag,
 		})
 	}
 
 	return result
+}
+
+func flagNote(commandName, flagName string) string {
+	switch commandName {
+	case "split-window":
+		switch flagName {
+		case "-b":
+			return "create before or above"
+		case "-d":
+			return "do not select new pane"
+		case "-f":
+			return "span the full window"
+		case "-h":
+			return "split horizontally"
+		case "-I":
+			return "forward stdin to empty pane"
+		case "-P":
+			return "print created pane info"
+		case "-v":
+			return "split vertically"
+		case "-Z":
+			return "keep or enable zoom"
+		}
+	case "join-pane", "move-pane":
+		switch flagName {
+		case "-b":
+			return "place before or above"
+		case "-d":
+			return "do not select target pane"
+		case "-f":
+			return "span the full window"
+		case "-h":
+			return "split horizontally"
+		case "-v":
+			return "split vertically"
+		}
+	case "break-pane":
+		switch flagName {
+		case "-a":
+			return "place after destination index"
+		case "-b":
+			return "place before destination index"
+		case "-d":
+			return "do not select new window"
+		case "-P":
+			return "print created window info"
+		}
+	case "swap-pane":
+		switch flagName {
+		case "-d":
+			return "keep current active pane"
+		case "-D":
+			return "swap with next pane"
+		case "-U":
+			return "swap with previous pane"
+		case "-Z":
+			return "keep zoom"
+		}
+	case "resize-pane":
+		switch flagName {
+		case "-D":
+			return "resize downward"
+		case "-L":
+			return "resize left"
+		case "-M":
+			return "resize with mouse"
+		case "-R":
+			return "resize right"
+		case "-T":
+			return "trim below cursor"
+		case "-U":
+			return "resize upward"
+		case "-Z":
+			return "toggle zoom"
+		}
+	case "resize-window":
+		switch flagName {
+		case "-A":
+			return "use largest session size"
+		case "-D":
+			return "resize downward"
+		case "-L":
+			return "resize left"
+		case "-R":
+			return "resize right"
+		case "-U":
+			return "resize upward"
+		case "-a":
+			return "use smallest session size"
+		}
+	case "rotate-window":
+		switch flagName {
+		case "-D":
+			return "rotate downward"
+		case "-U":
+			return "rotate upward"
+		case "-Z":
+			return "keep zoom"
+		}
+	case "select-layout":
+		switch flagName {
+		case "-E":
+			return "spread panes evenly"
+		case "-n":
+			return "next layout"
+		case "-o":
+			return "restore previous layout"
+		case "-p":
+			return "previous layout"
+		}
+	case "select-pane":
+		switch flagName {
+		case "-D":
+			return "select pane below"
+		case "-L":
+			return "select pane on the left"
+		case "-R":
+			return "select pane on the right"
+		case "-U":
+			return "select pane above"
+		case "-d":
+			return "disable input"
+		case "-e":
+			return "enable input"
+		case "-l":
+			return "select previous pane"
+		case "-m":
+			return "set marked pane"
+		case "-M":
+			return "clear marked pane"
+		case "-Z":
+			return "keep zoom"
+		}
+	case "select-window":
+		switch flagName {
+		case "-l":
+			return "select previous window"
+		case "-n":
+			return "select next window"
+		case "-p":
+			return "select previous window by index"
+		case "-T":
+			return "toggle to last window if current"
+		}
+	}
+
+	return ""
 }
 
 func usedFlags(command tmux.Command, tokens []string, keep string) map[string]struct{} {

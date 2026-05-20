@@ -171,3 +171,37 @@ func TestCompleteEditingNewFlagPrefixStillExcludesUsedFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestCompleteAddsLayoutFlagNotes(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(nil)
+	commands := []tmux.Command{
+		{
+			Name: "split-window",
+			Flags: []tmux.Flag{
+				{Name: "-b"},
+				{Name: "-h"},
+				{Name: "-v"},
+				{Name: "-Z"},
+			},
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "split-window -")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	want := map[string]string{
+		"-b": "create before or above",
+		"-h": "split horizontally",
+		"-v": "split vertically",
+		"-Z": "keep or enable zoom",
+	}
+	for _, candidate := range got {
+		if note, ok := want[candidate.Value]; ok && candidate.Note != note {
+			t.Fatalf("candidate %q note = %q, want %q", candidate.Value, candidate.Note, note)
+		}
+	}
+}

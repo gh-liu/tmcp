@@ -13,6 +13,7 @@ const (
 type Candidate struct {
 	Value   string
 	Display string
+	Note    string
 	Kind    CandidateKind
 }
 

@@ -378,11 +378,16 @@ func renderCandidateDisplay(candidate complete.Candidate) string {
 
 	flag, value, ok := strings.Cut(candidate.Display, " ")
 	if !ok || value == "" {
+		if candidate.Note != "" {
+			return candidate.Display + "  " + stylePlaceholder(candidate.Note)
+		}
 		return candidate.Display
 	}
 
 	rendered := flag + " " + stylePlaceholder(value)
-	if note, ok := placeholderNote(value); ok {
+	if note := candidate.Note; note != "" {
+		rendered += "  " + stylePlaceholder(note)
+	} else if note, ok := placeholderNote(value); ok {
 		rendered += "  " + stylePlaceholder(note)
 	}
 	return rendered

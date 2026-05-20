@@ -467,6 +467,19 @@ func TestRenderCandidateDisplayLeavesBareFlagUnchanged(t *testing.T) {
 	}
 }
 
+func TestRenderCandidateDisplayAddsBareFlagNote(t *testing.T) {
+	t.Parallel()
+
+	got := renderCandidateDisplay(complete.Candidate{
+		Display: "-h",
+		Note:    "split horizontally",
+		Kind:    complete.CandidateFlag,
+	})
+	if !strings.Contains(got, "split horizontally") {
+		t.Fatalf("renderCandidateDisplay() = %q, want flag note", got)
+	}
+}
+
 func TestRenderCandidateDisplayAddsPlaceholderNote(t *testing.T) {
 	t.Parallel()
 
