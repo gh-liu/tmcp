@@ -577,16 +577,106 @@ func commandNote(command string) (string, bool) {
 
 func placeholderNote(placeholder string) (string, bool) {
 	switch placeholder {
+	case "working-directory", "start-directory":
+		return "working directory", true
+	case "session-name":
+		return "session name", true
+	case "window-name":
+		return "window name", true
+	case "buffer-name", "new-buffer-name":
+		return "buffer name", true
+	case "key-table":
+		return "key table", true
+	case "key-format":
+		return "key label format", true
+	case "sort-order":
+		return "sort field", true
+	case "border-lines":
+		return "border line style", true
+	case "border-style":
+		return "border style", true
+	case "selected-style", "style":
+		return "tmux style", true
+	case "title":
+		return "title text", true
+	case "template":
+		return "command template", true
+	case "prompt", "prompts":
+		return "prompt text", true
+	case "type":
+		return "prompt type", true
+	case "note":
+		return "key binding note", true
+	case "flags":
+		return "comma-separated flags", true
+	case "inputs":
+		return "initial prompt values", true
+	case "confirm_key":
+		return "confirmation key", true
+	case "starting-choice":
+		return "initial menu selection", true
+	case "position":
+		return "popup or menu position", true
+	case "height":
+		return "height", true
+	case "width":
+		return "width", true
+	case "delay", "duration":
+		return "time delay", true
+	case "buffer-index":
+		return "buffer index", true
+	case "start-line":
+		return "start line", true
+	case "end-line":
+		return "end line", true
+	case "match-string":
+		return "search pattern", true
+	case "size":
+		return "pane or window size", true
+	case "separator":
+		return "separator text", true
+	case "pane:state":
+		return "pane state", true
+	case "name:what:format":
+		return "subscription spec", true
+	case "XxY":
+		return "client size", true
+	case "adjustment":
+		return "size adjustment", true
+	case "new-name":
+		return "new name", true
+	case "data":
+		return "buffer contents", true
+	case "hook":
+		return "hook name", true
+	case "option":
+		return "option name", true
+	case "name":
+		return "variable name", true
+	case "value":
+		return "value", true
 	case "format":
 		return "tmux format", true
 	case "filter":
 		return "format expression", true
-	case "path", "start-directory", "working-directory":
+	case "path":
 		return "filesystem path", true
 	case "shell-command":
 		return "shell command", true
 	case "layout-name":
 		return "layout preset", true
+	case "command":
+		return "tmux command", true
+	case "arguments":
+		return "command arguments", true
+	case "key":
+		return "key name", true
+	case "user":
+		return "user name", true
+	case "channel":
+		return "channel name", true
+	case "environment":
+		return "VARIABLE=value", true
 	}
 
 	return "", false

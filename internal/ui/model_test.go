@@ -488,6 +488,13 @@ func TestPlaceholderNote(t *testing.T) {
 		want        string
 		ok          bool
 	}{
+		{placeholder: "working-directory", want: "working directory", ok: true},
+		{placeholder: "window-name", want: "window name", ok: true},
+		{placeholder: "key-table", want: "key table", ok: true},
+		{placeholder: "flags", want: "comma-separated flags", ok: true},
+		{placeholder: "position", want: "popup or menu position", ok: true},
+		{placeholder: "match-string", want: "search pattern", ok: true},
+		{placeholder: "environment", want: "VARIABLE=value", ok: true},
 		{placeholder: "format", want: "tmux format", ok: true},
 		{placeholder: "filter", want: "format expression", ok: true},
 		{placeholder: "path", want: "filesystem path", ok: true},
