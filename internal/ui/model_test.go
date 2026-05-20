@@ -512,3 +512,45 @@ func TestPlaceholderNote(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderCandidateDisplayAddsCommandNote(t *testing.T) {
+	t.Parallel()
+
+	got := renderCandidateDisplay(complete.Candidate{
+		Value:   "send-keys",
+		Display: "send-keys (send)",
+		Kind:    complete.CandidateCommand,
+	})
+
+	if !strings.Contains(got, "send keys to a pane or client") {
+		t.Fatalf("renderCandidateDisplay() = %q, want command note", got)
+	}
+}
+
+func TestCommandNote(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		command string
+		want    string
+		ok      bool
+	}{
+		{command: "send-keys", want: "send keys to a pane or client", ok: true},
+		{command: "split-window", want: "split a pane and create a new one", ok: true},
+		{command: "display-popup", want: "show a popup running a shell command", ok: true},
+		{command: "find-window", want: "search window names, titles, or contents", ok: true},
+		{command: "choose-tree", want: "", ok: false},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.command, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := commandNote(tc.command)
+			if ok != tc.ok || got != tc.want {
+				t.Fatalf("commandNote(%q) = (%q, %v), want (%q, %v)", tc.command, got, ok, tc.want, tc.ok)
+			}
+		})
+	}
+}

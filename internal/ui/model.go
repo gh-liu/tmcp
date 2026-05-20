@@ -365,6 +365,13 @@ func stylePlaceholder(s string) string {
 }
 
 func renderCandidateDisplay(candidate complete.Candidate) string {
+	if candidate.Kind == complete.CandidateCommand {
+		if note, ok := commandNote(candidate.Value); ok {
+			return candidate.Display + "  " + stylePlaceholder(note)
+		}
+		return candidate.Display
+	}
+
 	if candidate.Kind != complete.CandidateFlag {
 		return candidate.Display
 	}
@@ -379,6 +386,57 @@ func renderCandidateDisplay(candidate complete.Candidate) string {
 		rendered += "  " + stylePlaceholder(note)
 	}
 	return rendered
+}
+
+func commandNote(command string) (string, bool) {
+	switch command {
+	case "send-keys":
+		return "send keys to a pane or client", true
+	case "split-window":
+		return "split a pane and create a new one", true
+	case "new-window":
+		return "create a new window", true
+	case "kill-pane":
+		return "destroy a pane", true
+	case "kill-window":
+		return "destroy a window", true
+	case "select-pane":
+		return "make a pane active", true
+	case "select-window":
+		return "switch to a window", true
+	case "display-popup":
+		return "show a popup running a shell command", true
+	case "display-message":
+		return "show or print a tmux message", true
+	case "list-panes":
+		return "list panes", true
+	case "list-windows":
+		return "list windows", true
+	case "list-sessions":
+		return "list sessions", true
+	case "capture-pane":
+		return "capture pane contents", true
+	case "pipe-pane":
+		return "pipe pane output to or from a command", true
+	case "join-pane":
+		return "move a pane into another split", true
+	case "break-pane":
+		return "move a pane into its own window", true
+	case "swap-pane":
+		return "swap two panes", true
+	case "swap-window":
+		return "swap two windows", true
+	case "resize-pane":
+		return "resize a pane", true
+	case "resize-window":
+		return "resize a window", true
+	case "rename-window":
+		return "rename a window", true
+	case "find-window":
+		return "search window names, titles, or contents", true
+	}
+
+	return "", false
 }
 
 func placeholderNote(placeholder string) (string, bool) {
