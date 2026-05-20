@@ -39,12 +39,12 @@ func (c Completer) Complete(ctx context.Context, commands []tmux.Command, line s
 
 	switch {
 	case endsWithSpace && len(tokens) == 1:
-		return flagCandidates(command, "", usedFlags(command, tokens[1:], "")), nil
+		return c.completeCommandArguments(ctx, commands, command, tokens[1:], "")
 	case endsWithSpace:
 		if flag, ok := findFlag(command, tokens[len(tokens)-1]); ok && flag.Value != "" {
 			return c.completeValue(ctx, flag.Value, "")
 		}
-		return flagCandidates(command, "", usedFlags(command, tokens[1:], "")), nil
+		return c.completeCommandArguments(ctx, commands, command, tokens[1:], "")
 	default:
 		current := tokens[len(tokens)-1]
 		if strings.HasPrefix(current, "-") {
@@ -56,9 +56,34 @@ func (c Completer) Complete(ctx context.Context, commands []tmux.Command, line s
 				return c.completeValue(ctx, flag.Value, current)
 			}
 		}
+
+		return c.completePositional(ctx, commands, command, tokens[1:len(tokens)-1], current)
 	}
 
 	return nil, nil
+}
+
+func (c Completer) completeCommandArguments(ctx context.Context, commands []tmux.Command, command tmux.Command, tokens []string, prefix string) ([]Candidate, error) {
+	flags := flagCandidates(command, prefix, usedFlags(command, tokens, prefix))
+	positionals, err := c.completePositional(ctx, commands, command, tokens, prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	return mergeCandidates(flags, positionals), nil
+}
+
+func (c Completer) completePositional(ctx context.Context, commands []tmux.Command, command tmux.Command, tokens []string, prefix string) ([]Candidate, error) {
+	placeholder, ok := nextPositional(command, tokens)
+	if !ok {
+		return nil, nil
+	}
+
+	if strings.HasPrefix(placeholder, "command") {
+		return commandCandidates(commands, prefix), nil
+	}
+
+	return c.completeValue(ctx, placeholder, prefix)
 }
 
 func (c Completer) completeValue(ctx context.Context, placeholder, prefix string) ([]Candidate, error) {
@@ -98,6 +123,14 @@ func providerKey(placeholder string) string {
 		return "client"
 	case strings.Contains(placeholder, "buffer-name"), strings.Contains(placeholder, "buffer-index"):
 		return "buffer"
+	case strings.Contains(placeholder, "hook"):
+		return "hook"
+	case strings.Contains(placeholder, "option"):
+		return "option"
+	case strings.Contains(placeholder, "layout-name"):
+		return "layout"
+	case strings.Contains(placeholder, "key-table"):
+		return "key-table"
 	default:
 		return ""
 	}
@@ -359,6 +392,30 @@ func usedFlags(command tmux.Command, tokens []string, keep string) map[string]st
 		used[flag.Name] = struct{}{}
 	}
 	return used
+}
+
+func nextPositional(command tmux.Command, tokens []string) (string, bool) {
+	index := 0
+	for i := 0; i < len(tokens); i++ {
+		token := tokens[i]
+		if flag, ok := findFlag(command, token); ok {
+			if flag.Value != "" && i+1 < len(tokens) {
+				i++
+			}
+			continue
+		}
+		if strings.HasPrefix(token, "-") {
+			continue
+		}
+
+		index++
+	}
+
+	if index >= len(command.Positional) {
+		return "", false
+	}
+
+	return command.Positional[index], true
 }
 
 func findCommand(commands []tmux.Command, token string) (tmux.Command, bool) {

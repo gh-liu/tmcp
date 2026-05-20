@@ -33,4 +33,19 @@ var specialTokens = map[string][]string{
 		"{next}",
 		"{previous}",
 	},
+	"layout": {
+		"even-horizontal",
+		"even-vertical",
+		"main-horizontal",
+		"main-horizontal-mirrored",
+		"main-vertical",
+		"main-vertical-mirrored",
+		"tiled",
+	},
+	"key-table": {
+		"prefix",
+		"root",
+		"copy-mode",
+		"copy-mode-vi",
+	},
 }

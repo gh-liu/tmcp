@@ -172,6 +172,195 @@ func TestCompleteEditingNewFlagPrefixStillExcludesUsedFlags(t *testing.T) {
 	}
 }
 
+func TestCompleteListsKnownPositionalValuesAfterCommand(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(nil)
+	commands := []tmux.Command{
+		{
+			Name: "select-layout",
+			Flags: []tmux.Flag{
+				{Name: "-E"},
+				{Name: "-t", Value: "target-pane"},
+			},
+			Positional: []string{"layout-name"},
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "select-layout ")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	want := map[string]bool{
+		"-E":              false,
+		"even-horizontal": false,
+		"tiled":           false,
+	}
+	for _, candidate := range got {
+		if _, ok := want[candidate.Value]; ok {
+			want[candidate.Value] = true
+		}
+	}
+
+	for value, found := range want {
+		if !found {
+			t.Fatalf("expected %q in candidates, got %#v", value, got)
+		}
+	}
+}
+
+func TestCompleteFiltersKnownPositionalValues(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(nil)
+	commands := []tmux.Command{
+		{
+			Name:       "select-layout",
+			Positional: []string{"layout-name"},
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "select-layout main-v")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("len(Complete()) = %d, want 2: %#v", len(got), got)
+	}
+
+	for _, candidate := range got {
+		if candidate.Value != "main-vertical" && candidate.Value != "main-vertical-mirrored" {
+			t.Fatalf("unexpected candidate %#v", candidate)
+		}
+	}
+}
+
+func TestCompleteListsKnownPositionalValuesAfterFlagValue(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(nil)
+	commands := []tmux.Command{
+		{
+			Name: "select-layout",
+			Flags: []tmux.Flag{
+				{Name: "-t", Value: "target-pane"},
+			},
+			Positional: []string{"layout-name"},
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "select-layout -t main:editor.0 ")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	found := false
+	for _, candidate := range got {
+		if candidate.Value == "tiled" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected tiled in candidates, got %#v", got)
+	}
+}
+
+func TestCompleteDelegatesToProviderForKnownPositionalValue(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(map[string]Provider{
+		"option": providerFunc(func(context.Context, string) ([]Candidate, error) {
+			return []Candidate{
+				{Value: "status-style", Display: "status-style", Kind: CandidateValue},
+			}, nil
+		}),
+	})
+	commands := []tmux.Command{
+		{
+			Name:       "set-option",
+			Positional: []string{"option", "value"},
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "set-option status-")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	if len(got) != 1 || got[0].Value != "status-style" {
+		t.Fatalf("Complete() = %#v, want status-style", got)
+	}
+}
+
+func TestCompleteListsSpecialTokensForKnownFlagValue(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(nil)
+	commands := []tmux.Command{
+		{
+			Name: "bind-key",
+			Flags: []tmux.Flag{
+				{Name: "-T", Value: "key-table"},
+			},
+			Positional: []string{"key", "command [argument ...]"},
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "bind-key -T ")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	found := false
+	for _, candidate := range got {
+		if candidate.Value == "copy-mode-vi" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected copy-mode-vi in candidates, got %#v", got)
+	}
+}
+
+func TestCompleteListsKnownCommandsForCommandPositional(t *testing.T) {
+	t.Parallel()
+
+	completer := NewCompleterWithProviders(nil)
+	commands := []tmux.Command{
+		{
+			Name:       "list-commands",
+			Positional: []string{"command"},
+		},
+		{
+			Name: "display-message",
+		},
+		{
+			Name: "display-panes",
+		},
+	}
+
+	got, err := completer.Complete(context.Background(), commands, "list-commands displ")
+	if err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("len(Complete()) = %d, want 2: %#v", len(got), got)
+	}
+
+	for _, candidate := range got {
+		if candidate.Value != "display-message" && candidate.Value != "display-panes" {
+			t.Fatalf("unexpected candidate %#v", candidate)
+		}
+	}
+}
+
 func TestCompleteAddsLayoutFlagNotes(t *testing.T) {
 	t.Parallel()
 
