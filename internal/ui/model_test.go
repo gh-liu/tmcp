@@ -234,6 +234,44 @@ func TestViewPlacesScrollbarAtRightEdge(t *testing.T) {
 	}
 }
 
+func TestViewAlignsFlagNotes(t *testing.T) {
+	t.Parallel()
+
+	model := Model{
+		width:  80,
+		height: 6,
+		candidates: []complete.Candidate{
+			{Display: "-d", Note: "keep current active pane", Kind: complete.CandidateFlag},
+			{Display: "-D", Note: "swap with next pane", Kind: complete.CandidateFlag},
+			{Display: "-U", Note: "swap with previous pane", Kind: complete.CandidateFlag},
+		},
+	}
+
+	lines := strings.Split(strings.TrimSuffix(model.View(), "\n"), "\n")
+	if len(lines) < 5 {
+		t.Fatalf("View() returned %d lines, want at least 5", len(lines))
+	}
+
+	first := noteStartColumn(t, lines[2], "keep current active pane")
+	second := noteStartColumn(t, lines[3], "swap with next pane")
+	third := noteStartColumn(t, lines[4], "swap with previous pane")
+
+	if first != second || second != third {
+		t.Fatalf("note columns = %d, %d, %d, want all equal", first, second, third)
+	}
+}
+
+func noteStartColumn(t *testing.T, line, note string) int {
+	t.Helper()
+
+	idx := strings.Index(line, note)
+	if idx == -1 {
+		t.Fatalf("line %q missing note %q", line, note)
+	}
+
+	return ansi.StringWidth(line[:idx])
+}
+
 func TestInitialTerminalSize(t *testing.T) {
 	t.Parallel()
 
@@ -436,60 +474,63 @@ func TestRenderInputDoesNotShowPendingFlagValuePlaceholderForUnknownFlag(t *test
 	}
 }
 
-func TestRenderCandidateDisplayStylesFlagValuePlaceholder(t *testing.T) {
+func TestCandidateDisplayPartsStylesFlagValuePlaceholder(t *testing.T) {
 	t.Parallel()
 
-	got := renderCandidateDisplay(complete.Candidate{
+	label, note := candidateDisplayParts(complete.Candidate{
 		Display: "-t target-pane",
 		Kind:    complete.CandidateFlag,
 	})
 
-	if !strings.Contains(got, "-t ") {
-		t.Fatalf("renderCandidateDisplay() = %q, want flag prefix", got)
+	if !strings.Contains(label, "-t ") {
+		t.Fatalf("candidateDisplayParts() label = %q, want flag prefix", label)
 	}
-	if !strings.Contains(got, "target-pane") {
-		t.Fatalf("renderCandidateDisplay() = %q, want placeholder text", got)
+	if !strings.Contains(label, "target-pane") {
+		t.Fatalf("candidateDisplayParts() label = %q, want placeholder text", label)
 	}
-	if got == "-t target-pane" {
-		t.Fatalf("renderCandidateDisplay() = %q, want styled placeholder", got)
+	if label == "-t target-pane" {
+		t.Fatalf("candidateDisplayParts() label = %q, want styled placeholder", label)
+	}
+	if note != "" {
+		t.Fatalf("candidateDisplayParts() note = %q, want empty note", note)
 	}
 }
 
-func TestRenderCandidateDisplayLeavesBareFlagUnchanged(t *testing.T) {
+func TestCandidateDisplayPartsLeavesBareFlagUnchanged(t *testing.T) {
 	t.Parallel()
 
-	got := renderCandidateDisplay(complete.Candidate{
+	label, note := candidateDisplayParts(complete.Candidate{
 		Display: "-F",
 		Kind:    complete.CandidateFlag,
 	})
-	if got != "-F" {
-		t.Fatalf("renderCandidateDisplay() = %q, want %q", got, "-F")
+	if label != "-F" || note != "" {
+		t.Fatalf("candidateDisplayParts() = (%q, %q), want (%q, %q)", label, note, "-F", "")
 	}
 }
 
-func TestRenderCandidateDisplayAddsBareFlagNote(t *testing.T) {
+func TestCandidateDisplayPartsAddsBareFlagNote(t *testing.T) {
 	t.Parallel()
 
-	got := renderCandidateDisplay(complete.Candidate{
+	label, note := candidateDisplayParts(complete.Candidate{
 		Display: "-h",
 		Note:    "split horizontally",
 		Kind:    complete.CandidateFlag,
 	})
-	if !strings.Contains(got, "split horizontally") {
-		t.Fatalf("renderCandidateDisplay() = %q, want flag note", got)
+	if label != "-h" || note != "split horizontally" {
+		t.Fatalf("candidateDisplayParts() = (%q, %q), want (%q, %q)", label, note, "-h", "split horizontally")
 	}
 }
 
-func TestRenderCandidateDisplayAddsPlaceholderNote(t *testing.T) {
+func TestCandidateDisplayPartsAddsPlaceholderNote(t *testing.T) {
 	t.Parallel()
 
-	got := renderCandidateDisplay(complete.Candidate{
+	label, note := candidateDisplayParts(complete.Candidate{
 		Display: "-F format",
 		Kind:    complete.CandidateFlag,
 	})
 
-	if !strings.Contains(got, "tmux format") {
-		t.Fatalf("renderCandidateDisplay() = %q, want placeholder note", got)
+	if !strings.Contains(label, "format") || note != "tmux format" {
+		t.Fatalf("candidateDisplayParts() = (%q, %q), want placeholder note", label, note)
 	}
 }
 
@@ -530,17 +571,30 @@ func TestPlaceholderNote(t *testing.T) {
 	}
 }
 
-func TestRenderCandidateDisplayAddsCommandNote(t *testing.T) {
+func TestCandidateDisplayPartsAddsCommandNote(t *testing.T) {
 	t.Parallel()
 
-	got := renderCandidateDisplay(complete.Candidate{
+	label, note := candidateDisplayParts(complete.Candidate{
 		Value:   "send-keys",
 		Display: "send-keys (send)",
 		Kind:    complete.CandidateCommand,
 	})
 
-	if !strings.Contains(got, "send keys to a pane or client") {
-		t.Fatalf("renderCandidateDisplay() = %q, want command note", got)
+	if label != "send-keys (send)" || note != "send keys to a pane or client" {
+		t.Fatalf("candidateDisplayParts() = (%q, %q), want command note", label, note)
+	}
+}
+
+func TestCandidateLabelWidthUsesVisibleLabels(t *testing.T) {
+	t.Parallel()
+
+	width := candidateLabelWidth([]complete.Candidate{
+		{Display: "-d", Note: "keep current active pane", Kind: complete.CandidateFlag},
+		{Display: "-D", Note: "swap with next pane", Kind: complete.CandidateFlag},
+		{Display: "-t target-pane", Kind: complete.CandidateFlag},
+	})
+	if width != ansi.StringWidth("-t "+stylePlaceholder("target-pane")) {
+		t.Fatalf("candidateLabelWidth() = %d, want width of longest label", width)
 	}
 }
 

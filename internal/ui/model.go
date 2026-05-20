@@ -141,13 +141,18 @@ func (m Model) View() string {
 	if scrollbar != nil {
 		contentWidth = max(0, width-2)
 	}
+	labelWidth := candidateLabelWidth(m.candidates[start:end])
 
 	for i := start; i < end; i++ {
 		prefix := "  "
 		if i == m.cursor {
 			prefix = "> "
 		}
-		line := prefix + renderCandidateDisplay(m.candidates[i])
+		label, note := candidateDisplayParts(m.candidates[i])
+		line := prefix + label
+		if note != "" {
+			line = prefix + padRight(label, labelWidth) + "  " + stylePlaceholder(note)
+		}
 		var b strings.Builder
 		b.WriteString(fitLine(line, contentWidth))
 		if scrollbar != nil {
@@ -364,33 +369,40 @@ func stylePlaceholder(s string) string {
 	return "\x1b[90m" + s + "\x1b[0m"
 }
 
-func renderCandidateDisplay(candidate complete.Candidate) string {
+func candidateDisplayParts(candidate complete.Candidate) (label, note string) {
 	if candidate.Kind == complete.CandidateCommand {
 		if note, ok := commandNote(candidate.Value); ok {
-			return candidate.Display + "  " + stylePlaceholder(note)
+			return candidate.Display, note
 		}
-		return candidate.Display
+		return candidate.Display, ""
 	}
 
 	if candidate.Kind != complete.CandidateFlag {
-		return candidate.Display
+		return candidate.Display, ""
 	}
 
 	flag, value, ok := strings.Cut(candidate.Display, " ")
 	if !ok || value == "" {
-		if candidate.Note != "" {
-			return candidate.Display + "  " + stylePlaceholder(candidate.Note)
-		}
-		return candidate.Display
+		return candidate.Display, candidate.Note
 	}
 
-	rendered := flag + " " + stylePlaceholder(value)
 	if note := candidate.Note; note != "" {
-		rendered += "  " + stylePlaceholder(note)
+		return flag + " " + stylePlaceholder(value), note
 	} else if note, ok := placeholderNote(value); ok {
-		rendered += "  " + stylePlaceholder(note)
+		return flag + " " + stylePlaceholder(value), note
 	}
-	return rendered
+	return flag + " " + stylePlaceholder(value), ""
+}
+
+func candidateLabelWidth(candidates []complete.Candidate) int {
+	width := 0
+	for _, candidate := range candidates {
+		label, _ := candidateDisplayParts(candidate)
+		if w := ansi.StringWidth(label); w > width {
+			width = w
+		}
+	}
+	return width
 }
 
 func commandNote(command string) (string, bool) {
