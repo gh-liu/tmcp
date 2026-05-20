@@ -391,3 +391,47 @@ func TestRenderInputStylesPlaceholder(t *testing.T) {
 		t.Fatalf("renderInput() = %q, want styled placeholder", got)
 	}
 }
+
+func TestRenderInputShowsPendingFlagValuePlaceholder(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{
+			Name: "send-keys",
+			Flags: []tmux.Flag{
+				{Name: "-t", Value: "target-pane"},
+			},
+		},
+	})
+	model.input.SetValue("send-keys -t ")
+
+	got := model.renderInput()
+	if !strings.Contains(got, "send-keys -t ") {
+		t.Fatalf("renderInput() = %q, want command and flag prefix", got)
+	}
+	if !strings.Contains(got, "target-pane") {
+		t.Fatalf("renderInput() = %q, want pending value placeholder", got)
+	}
+	if got == "> send-keys -t target-pane" {
+		t.Fatalf("renderInput() = %q, want styled pending value placeholder", got)
+	}
+}
+
+func TestRenderInputDoesNotShowPendingFlagValuePlaceholderForUnknownFlag(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{
+			Name: "send-keys",
+			Flags: []tmux.Flag{
+				{Name: "-t", Value: "target-pane"},
+			},
+		},
+	})
+	model.input.SetValue("send-keys -x ")
+
+	got := model.renderInput()
+	if strings.Contains(got, "target-pane") {
+		t.Fatalf("renderInput() = %q, did not expect pending value placeholder", got)
+	}
+}

@@ -312,7 +312,34 @@ func (m Model) renderInput() string {
 		return "> " + stylePlaceholder(m.input.Placeholder)
 	}
 
+	if placeholder, ok := m.pendingValuePlaceholder(value); ok {
+		return "> " + value + stylePlaceholder(placeholder)
+	}
+
 	return "> " + value
+}
+
+func (m Model) pendingValuePlaceholder(line string) (string, bool) {
+	if !strings.HasSuffix(line, " ") {
+		return "", false
+	}
+
+	tokens := strings.Fields(line)
+	if len(tokens) < 2 {
+		return "", false
+	}
+
+	command, ok := findCommandSpec(m.commands, tokens[0])
+	if !ok {
+		return "", false
+	}
+
+	flag, ok := findCommandFlag(command, tokens[len(tokens)-1])
+	if !ok || flag.Value == "" {
+		return "", false
+	}
+
+	return flag.Value, true
 }
 
 func replaceCurrentToken(line, replacement string) string {
@@ -335,6 +362,32 @@ func replaceCurrentToken(line, replacement string) string {
 
 func stylePlaceholder(s string) string {
 	return "\x1b[90m" + s + "\x1b[0m"
+}
+
+func findCommandSpec(commands []tmux.Command, token string) (tmux.Command, bool) {
+	for _, command := range commands {
+		if command.Name == token {
+			return command, true
+		}
+
+		for _, alias := range command.Aliases {
+			if alias == token {
+				return command, true
+			}
+		}
+	}
+
+	return tmux.Command{}, false
+}
+
+func findCommandFlag(command tmux.Command, token string) (tmux.Flag, bool) {
+	for _, flag := range command.Flags {
+		if flag.Name == token {
+			return flag, true
+		}
+	}
+
+	return tmux.Flag{}, false
 }
 
 func initialTerminalSize() (int, int) {
