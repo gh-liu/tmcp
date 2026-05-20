@@ -421,7 +421,7 @@ func TestAcceptCandidateResetsCursorForNextCandidateSet(t *testing.T) {
 	}
 }
 
-func TestEnterAcceptsCurrentCandidateBeforeSubmitting(t *testing.T) {
+func TestEnterSubmitsTypedInputWithoutAcceptingCandidate(t *testing.T) {
 	t.Parallel()
 
 	model := NewModel([]tmux.Command{
@@ -436,12 +436,56 @@ func TestEnterAcceptsCurrentCandidateBeforeSubmitting(t *testing.T) {
 	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	got := updated.(Model)
 
-	if got.selection != "select-pane" {
-		t.Fatalf("selection after Enter = %q, want %q", got.selection, "select-pane")
+	if got.selection != "select-" {
+		t.Fatalf("selection after Enter = %q, want %q", got.selection, "select-")
 	}
 
 	if !got.shouldQuit {
 		t.Fatalf("shouldQuit after Enter = %v, want true", got.shouldQuit)
+	}
+}
+
+func TestRenderInputShowsGhostTextForSelectedCandidate(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{Name: "select-layout"},
+		{Name: "select-pane"},
+		{Name: "select-window"},
+	})
+	model.input.SetValue("select-")
+	model.refreshMatches()
+
+	got := model.renderInput()
+	if !strings.Contains(got, "pane") {
+		t.Fatalf("renderInput() = %q, want ghost suffix for current candidate", got)
+	}
+	if got == "> select-pane" {
+		t.Fatalf("renderInput() = %q, want styled ghost suffix, not committed input", got)
+	}
+	if model.input.Value() != "select-" {
+		t.Fatalf("input value = %q, want unchanged typed input", model.input.Value())
+	}
+}
+
+func TestRenderInputShowsGhostTextForSelectedValueCandidate(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{
+			Name:       "select-layout",
+			Positional: []string{"layout-name"},
+		},
+	})
+	model.input.SetValue("select-layout main-")
+	model.refreshMatches()
+
+	got := model.renderInput()
+	if !strings.Contains(got, "horizontal") {
+		t.Fatalf("renderInput() = %q, want ghost suffix for current value candidate", got)
+	}
+	if model.input.Value() != "select-layout main-" {
+		t.Fatalf("input value = %q, want unchanged typed input", model.input.Value())
 	}
 }
 

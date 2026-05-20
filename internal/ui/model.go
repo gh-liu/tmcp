@@ -120,9 +120,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.acceptCandidate(m.candidates[m.cursor])
 			return m, nil
 		case tea.KeyEnter:
-			if len(m.candidates) > 0 {
-				m.acceptCandidate(m.candidates[m.cursor])
-			}
 			m.selection = strings.TrimSpace(m.input.Value())
 			m.shouldQuit = true
 			return m, tea.Quit
@@ -419,7 +416,14 @@ func (m Model) renderInput() string {
 
 	value := m.input.Value()
 	if value == "" {
+		if preview, ok := m.previewSuffix(value); ok {
+			return prompt + stylePlaceholder(preview)
+		}
 		return prompt + stylePlaceholder(m.input.Placeholder)
+	}
+
+	if preview, ok := m.previewSuffix(value); ok {
+		return prompt + value + stylePlaceholder(preview)
 	}
 
 	if placeholder, ok := m.pendingValuePlaceholder(value); ok {
@@ -450,6 +454,31 @@ func (m Model) pendingValuePlaceholder(line string) (string, bool) {
 	}
 
 	return flag.Value, true
+}
+
+func (m Model) previewSuffix(line string) (string, bool) {
+	if len(m.candidates) == 0 || m.cursor < 0 || m.cursor >= len(m.candidates) {
+		return "", false
+	}
+
+	candidate := m.candidates[m.cursor]
+	switch candidate.Kind {
+	case complete.CandidateCommand, complete.CandidateHistory:
+		if !strings.HasPrefix(candidate.Value, line) {
+			return "", false
+		}
+		suffix := strings.TrimPrefix(candidate.Value, line)
+		return suffix, suffix != ""
+	case complete.CandidateFlag, complete.CandidateValue:
+		completed := replaceCurrentToken(line, candidate.Value+" ")
+		if !strings.HasPrefix(completed, line) {
+			return "", false
+		}
+		suffix := strings.TrimPrefix(completed, line)
+		return suffix, suffix != ""
+	default:
+		return "", false
+	}
 }
 
 func replaceCurrentToken(line, replacement string) string {
