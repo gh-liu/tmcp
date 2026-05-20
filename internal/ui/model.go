@@ -109,6 +109,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlN:
 			m.moveCursor(1)
 			return m, nil
+		case tea.KeyCtrlU:
+			m.movePage(-1)
+			return m, nil
+		case tea.KeyCtrlD:
+			m.movePage(1)
+			return m, nil
 		case tea.KeyCtrlR:
 			m.toggleHistoryMode()
 			return m, nil
@@ -141,6 +147,24 @@ func (m *Model) moveCursor(delta int) {
 	next := m.cursor + delta
 	if next < 0 || next >= len(m.candidates) {
 		return
+	}
+
+	m.cursor = next
+	m.adjustOffset()
+}
+
+func (m *Model) movePage(direction int) {
+	if len(m.candidates) == 0 || direction == 0 {
+		return
+	}
+
+	step := max(1, m.visibleCandidates()/2)
+	next := m.cursor + direction*step
+	if next < 0 {
+		next = 0
+	}
+	if next >= len(m.candidates) {
+		next = len(m.candidates) - 1
 	}
 
 	m.cursor = next

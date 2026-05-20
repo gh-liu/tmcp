@@ -104,6 +104,50 @@ func TestAdjustOffset(t *testing.T) {
 	}
 }
 
+func TestMovePage(t *testing.T) {
+	t.Parallel()
+
+	model := Model{
+		height:     13,
+		candidates: make([]complete.Candidate, 20),
+	}
+
+	model.movePage(1)
+	if model.cursor != 5 {
+		t.Fatalf("cursor after movePage(1) = %d, want 5", model.cursor)
+	}
+	if model.offset != 0 {
+		t.Fatalf("offset after movePage(1) = %d, want 0", model.offset)
+	}
+
+	model.movePage(1)
+	if model.cursor != 10 {
+		t.Fatalf("cursor after second movePage(1) = %d, want 10", model.cursor)
+	}
+	if model.offset != 1 {
+		t.Fatalf("offset after second movePage(1) = %d, want 1", model.offset)
+	}
+
+	model.movePage(-1)
+	if model.cursor != 5 {
+		t.Fatalf("cursor after movePage(-1) = %d, want 5", model.cursor)
+	}
+
+	model.cursor = 19
+	model.adjustOffset()
+	model.movePage(1)
+	if model.cursor != 19 {
+		t.Fatalf("cursor at bottom after movePage(1) = %d, want 19", model.cursor)
+	}
+
+	model.cursor = 0
+	model.adjustOffset()
+	model.movePage(-1)
+	if model.cursor != 0 {
+		t.Fatalf("cursor at top after movePage(-1) = %d, want 0", model.cursor)
+	}
+}
+
 func TestScrollbarColumn(t *testing.T) {
 	t.Parallel()
 
@@ -600,6 +644,38 @@ func TestCtrlPNStillNavigateCandidatesOutsideHistoryMode(t *testing.T) {
 	got = updated.(Model)
 	if got.cursor != 0 {
 		t.Fatalf("cursor after Ctrl-P = %d, want 0", got.cursor)
+	}
+}
+
+func TestCtrlDUHalfPageScrollCandidates(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{Name: "select-layout"},
+		{Name: "select-pane"},
+		{Name: "select-window"},
+		{Name: "send-keys"},
+		{Name: "split-window"},
+		{Name: "switch-client"},
+		{Name: "show-options"},
+		{Name: "show-hooks"},
+		{Name: "show-messages"},
+		{Name: "show-buffer"},
+		{Name: "show-environment"},
+		{Name: "show-window-options"},
+	})
+	model.height = 13
+
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	got := updated.(Model)
+	if got.cursor != 5 {
+		t.Fatalf("cursor after Ctrl-D = %d, want 5", got.cursor)
+	}
+
+	updated, _ = got.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
+	got = updated.(Model)
+	if got.cursor != 0 {
+		t.Fatalf("cursor after Ctrl-U = %d, want 0", got.cursor)
 	}
 }
 
