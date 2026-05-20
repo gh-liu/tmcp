@@ -96,6 +96,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.acceptCandidate(m.candidates[m.cursor])
 			return m, nil
 		case tea.KeyEnter:
+			if len(m.candidates) > 0 {
+				m.acceptCandidate(m.candidates[m.cursor])
+			}
 			m.selection = strings.TrimSpace(m.input.Value())
 			m.shouldQuit = true
 			return m, tea.Quit

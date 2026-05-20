@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/gh-liu/tmcp/internal/complete"
 	"github.com/gh-liu/tmcp/internal/tmux"
@@ -416,6 +417,30 @@ func TestAcceptCandidateResetsCursorForNextCandidateSet(t *testing.T) {
 
 	if model.candidates[0].Display != "-F" {
 		t.Fatalf("first candidate after acceptCandidate() = %q, want %q", model.candidates[0].Display, "-F")
+	}
+}
+
+func TestEnterAcceptsCurrentCandidateBeforeSubmitting(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{Name: "select-layout"},
+		{Name: "select-pane"},
+		{Name: "select-window"},
+	})
+
+	model.input.SetValue("select-")
+	model.refreshMatches()
+
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := updated.(Model)
+
+	if got.selection != "select-pane" {
+		t.Fatalf("selection after Enter = %q, want %q", got.selection, "select-pane")
+	}
+
+	if !got.shouldQuit {
+		t.Fatalf("shouldQuit after Enter = %v, want true", got.shouldQuit)
 	}
 }
 
