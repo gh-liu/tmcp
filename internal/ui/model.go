@@ -9,10 +9,10 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
 	"github.com/gh-liu/tmcp/internal/complete"
 	"github.com/gh-liu/tmcp/internal/tmux"
-	"github.com/mattn/go-runewidth"
 )
 
 const (
@@ -204,7 +204,7 @@ func scrollbarColumn(total, offset, maxVisible int) []rune {
 }
 
 func padRight(s string, width int) string {
-	current := runewidth.StringWidth(s)
+	current := ansi.StringWidth(s)
 	if current >= width {
 		return s
 	}
@@ -216,7 +216,7 @@ func fitLine(s string, width int) string {
 		return s
 	}
 
-	s = runewidth.Truncate(s, width, "")
+	s = ansi.Truncate(s, width, "")
 	return padRight(s, width)
 }
 
@@ -309,7 +309,7 @@ func (m Model) visibleCandidates() int {
 func (m Model) renderInput() string {
 	value := m.input.Value()
 	if value == "" {
-		return "> " + m.input.Placeholder
+		return "> " + stylePlaceholder(m.input.Placeholder)
 	}
 
 	return "> " + value
@@ -331,6 +331,10 @@ func replaceCurrentToken(line, replacement string) string {
 	}
 
 	return trimmed[:lastSpace+1] + replacement
+}
+
+func stylePlaceholder(s string) string {
+	return "\x1b[90m" + s + "\x1b[0m"
 }
 
 func initialTerminalSize() (int, int) {

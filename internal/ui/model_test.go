@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/gh-liu/tmcp/internal/complete"
 	"github.com/gh-liu/tmcp/internal/tmux"
 )
@@ -164,6 +165,15 @@ func TestCenterLines(t *testing.T) {
 	want := "abcd      "
 	if got != want {
 		t.Fatalf("fitLine() = %q, want %q", got, want)
+	}
+}
+
+func TestFitLineHandlesANSIWidth(t *testing.T) {
+	t.Parallel()
+
+	got := fitLine(stylePlaceholder("abcd"), 10)
+	if width := ansi.StringWidth(got); width != 10 {
+		t.Fatalf("fitLine() display width = %d, want 10", width)
 	}
 }
 
@@ -362,5 +372,22 @@ func TestAcceptCandidateResetsCursorForNextCandidateSet(t *testing.T) {
 
 	if model.candidates[0].Display != "-F" {
 		t.Fatalf("first candidate after acceptCandidate() = %q, want %q", model.candidates[0].Display, "-F")
+	}
+}
+
+func TestRenderInputStylesPlaceholder(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel(nil)
+	got := model.renderInput()
+
+	if !strings.HasPrefix(got, "> ") {
+		t.Fatalf("renderInput() = %q, want prefix %q", got, "> ")
+	}
+	if !strings.Contains(got, "Type a tmux command") {
+		t.Fatalf("renderInput() = %q, want placeholder text", got)
+	}
+	if got == "> Type a tmux command" {
+		t.Fatalf("renderInput() = %q, want styled placeholder", got)
 	}
 }
