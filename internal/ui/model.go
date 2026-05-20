@@ -390,6 +390,50 @@ func renderCandidateDisplay(candidate complete.Candidate) string {
 
 func commandNote(command string) (string, bool) {
 	switch command {
+	case "choose-buffer":
+		return "choose a paste buffer from a list", true
+	case "clear-history":
+		return "clear pane history", true
+	case "delete-buffer":
+		return "delete a paste buffer", true
+	case "list-buffers":
+		return "list paste buffers", true
+	case "load-buffer":
+		return "load a paste buffer from a file", true
+	case "paste-buffer":
+		return "paste a buffer into a pane", true
+	case "save-buffer":
+		return "save a paste buffer to a file", true
+	case "set-buffer":
+		return "set or rename a paste buffer", true
+	case "show-buffer":
+		return "show paste buffer contents", true
+	case "set-environment":
+		return "set or unset an environment variable", true
+	case "show-environment":
+		return "show environment variables", true
+	case "set-hook":
+		return "set, unset, or run a hook", true
+	case "show-hooks":
+		return "show hooks", true
+	case "set-option":
+		return "set a tmux option", true
+	case "set-window-option":
+		return "set a window option", true
+	case "show-options":
+		return "show tmux options", true
+	case "show-window-options":
+		return "show window options", true
+	case "clock-mode":
+		return "show a large clock", true
+	case "if-shell":
+		return "run commands based on a shell result", true
+	case "lock-server":
+		return "lock all clients using lock-command", true
+	case "run-shell":
+		return "run a shell or tmux command in the background", true
+	case "wait-for":
+		return "wait on, signal, or lock a channel", true
 	case "attach-session":
 		return "attach or switch to a session", true
 	case "detach-client":

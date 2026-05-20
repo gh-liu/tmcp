@@ -532,6 +532,11 @@ func TestCommandNote(t *testing.T) {
 		want    string
 		ok      bool
 	}{
+		{command: "choose-buffer", want: "choose a paste buffer from a list", ok: true},
+		{command: "set-environment", want: "set or unset an environment variable", ok: true},
+		{command: "set-option", want: "set a tmux option", ok: true},
+		{command: "show-hooks", want: "show hooks", ok: true},
+		{command: "run-shell", want: "run a shell or tmux command in the background", ok: true},
 		{command: "attach-session", want: "attach or switch to a session", ok: true},
 		{command: "detach-client", want: "detach one or more clients", ok: true},
 		{command: "new-session", want: "create a new session", ok: true},
