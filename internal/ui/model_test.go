@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -441,6 +442,187 @@ func TestEnterAcceptsCurrentCandidateBeforeSubmitting(t *testing.T) {
 
 	if !got.shouldQuit {
 		t.Fatalf("shouldQuit after Enter = %v, want true", got.shouldQuit)
+	}
+}
+
+func TestCtrlRTogglesHistorySearchCandidates(t *testing.T) {
+	t.Parallel()
+
+	model := NewModelWithHistory([]tmux.Command{{Name: "send-keys"}}, []string{
+		"select-pane -L",
+		"send-keys -t main:0 Enter",
+	})
+	model.input.SetValue("send")
+
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+	got := updated.(Model)
+
+	if !got.historyMode {
+		t.Fatalf("historyMode after Ctrl-R = %v, want true", got.historyMode)
+	}
+	if len(got.candidates) != 1 || got.candidates[0].Value != "send-keys -t main:0 Enter" {
+		t.Fatalf("history candidates after Ctrl-R = %#v, want filtered history result", got.candidates)
+	}
+	if !strings.Contains(got.renderInput(), "r> ") {
+		t.Fatalf("renderInput() in history mode = %q, want highlighted history prompt", got.renderInput())
+	}
+	if strings.HasPrefix(got.renderInput(), "r> ") {
+		t.Fatalf("renderInput() in history mode = %q, want styled prompt", got.renderInput())
+	}
+}
+
+func TestAcceptHistoryCandidateLeavesHistoryMode(t *testing.T) {
+	t.Parallel()
+
+	model := NewModelWithHistory(nil, []string{"select-pane -L"})
+	model.historyMode = true
+	model.candidates = []complete.Candidate{
+		{Value: "select-pane -L", Display: "select-pane -L", Kind: complete.CandidateHistory},
+	}
+
+	model.acceptCandidate(model.candidates[0])
+
+	if model.historyMode {
+		t.Fatalf("historyMode after acceptCandidate() = %v, want false", model.historyMode)
+	}
+	if model.input.Value() != "select-pane -L" {
+		t.Fatalf("input after acceptCandidate() = %q, want %q", model.input.Value(), "select-pane -L")
+	}
+}
+
+func TestHistoryPrevAndNextRestoreDraft(t *testing.T) {
+	t.Parallel()
+
+	model := NewModelWithHistory(nil, []string{
+		"kill-pane -t 1",
+		"select-pane -L",
+	})
+	model.input.SetValue("send")
+
+	model.historyPrev()
+	if model.input.Value() != "select-pane -L" {
+		t.Fatalf("historyPrev() input = %q, want newest history entry", model.input.Value())
+	}
+
+	model.historyPrev()
+	if model.input.Value() != "kill-pane -t 1" {
+		t.Fatalf("second historyPrev() input = %q, want older history entry", model.input.Value())
+	}
+
+	model.historyNext()
+	if model.input.Value() != "select-pane -L" {
+		t.Fatalf("historyNext() input = %q, want newer history entry", model.input.Value())
+	}
+
+	model.historyNext()
+	if model.input.Value() != "send" {
+		t.Fatalf("historyNext() at draft = %q, want %q", model.input.Value(), "send")
+	}
+}
+
+func TestHistoryNavigationResetAfterEditing(t *testing.T) {
+	t.Parallel()
+
+	model := NewModelWithHistory(nil, []string{"select-pane -L"})
+	model.input.SetValue("draft")
+	model.historyPrev()
+
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
+	got := updated.(Model)
+
+	if got.historyPos != len(got.history) {
+		t.Fatalf("historyPos after editing = %d, want %d", got.historyPos, len(got.history))
+	}
+}
+
+func TestCtrlPNStillNavigateCandidatesOutsideHistoryMode(t *testing.T) {
+	t.Parallel()
+
+	model := NewModel([]tmux.Command{
+		{Name: "select-layout"},
+		{Name: "select-pane"},
+		{Name: "select-window"},
+	})
+	model.input.SetValue("select-")
+	model.refreshMatches()
+
+	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlN})
+	got := updated.(Model)
+	if got.cursor != 1 {
+		t.Fatalf("cursor after Ctrl-N = %d, want 1", got.cursor)
+	}
+
+	updated, _ = got.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	got = updated.(Model)
+	if got.cursor != 0 {
+		t.Fatalf("cursor after Ctrl-P = %d, want 0", got.cursor)
+	}
+}
+
+func TestHistoryPathUsesXDGStateHome(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	previous, had := os.LookupEnv("XDG_STATE_HOME")
+	t.Cleanup(func() {
+		if had {
+			_ = os.Setenv("XDG_STATE_HOME", previous)
+		} else {
+			_ = os.Unsetenv("XDG_STATE_HOME")
+		}
+	})
+
+	_ = os.Setenv("XDG_STATE_HOME", tmp)
+
+	got, err := historyPath()
+	if err != nil {
+		t.Fatalf("historyPath() error = %v", err)
+	}
+
+	want := filepath.Join(tmp, "tmcp", "history")
+	if got != want {
+		t.Fatalf("historyPath() = %q, want %q", got, want)
+	}
+}
+
+func TestSaveAndLoadHistory(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	previous, had := os.LookupEnv("XDG_STATE_HOME")
+	t.Cleanup(func() {
+		if had {
+			_ = os.Setenv("XDG_STATE_HOME", previous)
+		} else {
+			_ = os.Unsetenv("XDG_STATE_HOME")
+		}
+	})
+	_ = os.Setenv("XDG_STATE_HOME", tmp)
+
+	history := []string{"select-pane -L", "send-keys Enter"}
+	if err := SaveHistory(history); err != nil {
+		t.Fatalf("SaveHistory() error = %v", err)
+	}
+
+	got, err := LoadHistory()
+	if err != nil {
+		t.Fatalf("LoadHistory() error = %v", err)
+	}
+
+	if len(got) != len(history) || got[0] != history[0] || got[1] != history[1] {
+		t.Fatalf("LoadHistory() = %#v, want %#v", got, history)
+	}
+}
+
+func TestAppendHistorySkipsEmptyAndConsecutiveDuplicates(t *testing.T) {
+	t.Parallel()
+
+	history := AppendHistory(nil, "")
+	history = AppendHistory(history, "select-pane -L")
+	history = AppendHistory(history, "select-pane -L")
+
+	if len(history) != 1 || history[0] != "select-pane -L" {
+		t.Fatalf("AppendHistory() = %#v, want one deduplicated entry", history)
 	}
 }
 

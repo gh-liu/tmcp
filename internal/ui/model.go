@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/term"
 	"github.com/gh-liu/tmcp/internal/complete"
 	"github.com/gh-liu/tmcp/internal/tmux"
+	"github.com/sahilm/fuzzy"
 )
 
 const (
@@ -22,20 +23,28 @@ const (
 var getTerminalSize = term.GetSize
 
 type Model struct {
-	input      textinput.Model
-	commands   []tmux.Command
-	completer  complete.Completer
-	candidates []complete.Candidate
-	width      int
-	height     int
-	cursor     int
-	offset     int
-	selection  string
-	shouldQuit bool
+	input       textinput.Model
+	commands    []tmux.Command
+	completer   complete.Completer
+	candidates  []complete.Candidate
+	history     []string
+	width       int
+	height      int
+	cursor      int
+	offset      int
+	historyPos  int
+	historyTmp  string
+	historyMode bool
+	selection   string
+	shouldQuit  bool
 }
 
 func ReadCommandLine(commands []tmux.Command) (string, error) {
-	model := NewModel(commands)
+	return ReadCommandLineWithHistory(commands, nil)
+}
+
+func ReadCommandLineWithHistory(commands []tmux.Command, history []string) (string, error) {
+	model := NewModelWithHistory(commands, history)
 	program := tea.NewProgram(model)
 
 	finalModel, err := program.Run()
@@ -52,15 +61,21 @@ func ReadCommandLine(commands []tmux.Command) (string, error) {
 }
 
 func NewModel(commands []tmux.Command) Model {
+	return NewModelWithHistory(commands, nil)
+}
+
+func NewModelWithHistory(commands []tmux.Command, history []string) Model {
 	input := textinput.New()
 	input.Focus()
 	input.Placeholder = "Type a tmux command"
 	input.Prompt = "> "
 
 	model := Model{
-		input:     input,
-		commands:  commands,
-		completer: complete.NewCompleter(),
+		input:      input,
+		commands:   commands,
+		completer:  complete.NewCompleter(),
+		history:    append([]string(nil), history...),
+		historyPos: len(history),
 	}
 	model.width, model.height = initialTerminalSize()
 	model.refreshMatches()
@@ -82,11 +97,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			m.shouldQuit = true
 			return m, tea.Quit
-		case tea.KeyUp, tea.KeyCtrlP:
+		case tea.KeyUp:
 			m.moveCursor(-1)
 			return m, nil
-		case tea.KeyDown, tea.KeyCtrlN:
+		case tea.KeyDown:
 			m.moveCursor(1)
+			return m, nil
+		case tea.KeyCtrlP:
+			m.moveCursor(-1)
+			return m, nil
+		case tea.KeyCtrlN:
+			m.moveCursor(1)
+			return m, nil
+		case tea.KeyCtrlR:
+			m.toggleHistoryMode()
 			return m, nil
 		case tea.KeyTab:
 			if len(m.candidates) == 0 {
@@ -105,8 +129,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	previousValue := m.input.Value()
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
+	if !m.historyMode && m.input.Value() != previousValue {
+		m.resetHistoryNavigation()
+	}
 	m.refreshMatches()
 
 	return m, cmd
@@ -245,6 +273,15 @@ func joinLines(lines []string) string {
 }
 
 func (m *Model) refreshMatches() {
+	if m.historyMode {
+		m.candidates = historyCandidates(m.history, m.input.Value())
+		if m.cursor >= len(m.candidates) {
+			m.cursor = max(0, len(m.candidates)-1)
+		}
+		m.adjustOffset()
+		return
+	}
+
 	candidates, err := m.completer.Complete(context.Background(), m.commands, m.input.Value())
 	if err != nil {
 		m.candidates = nil
@@ -257,6 +294,60 @@ func (m *Model) refreshMatches() {
 	}
 
 	m.adjustOffset()
+}
+
+func (m *Model) toggleHistoryMode() {
+	m.historyMode = !m.historyMode
+	m.cursor = 0
+	m.offset = 0
+	m.refreshMatches()
+}
+
+func (m *Model) resetHistoryNavigation() {
+	m.historyPos = len(m.history)
+	m.historyTmp = ""
+}
+
+func (m *Model) historyPrev() {
+	if len(m.history) == 0 {
+		return
+	}
+
+	if m.historyPos == len(m.history) {
+		m.historyTmp = m.input.Value()
+		m.historyPos = len(m.history) - 1
+	} else if m.historyPos > 0 {
+		m.historyPos--
+	} else {
+		return
+	}
+
+	m.historyMode = false
+	m.input.SetValue(m.history[m.historyPos])
+	m.input.SetCursor(len(m.input.Value()))
+	m.cursor = 0
+	m.offset = 0
+	m.refreshMatches()
+}
+
+func (m *Model) historyNext() {
+	if len(m.history) == 0 || m.historyPos == len(m.history) {
+		return
+	}
+
+	m.historyPos++
+	if m.historyPos == len(m.history) {
+		m.input.SetValue(m.historyTmp)
+		m.historyTmp = ""
+	} else {
+		m.input.SetValue(m.history[m.historyPos])
+	}
+
+	m.historyMode = false
+	m.input.SetCursor(len(m.input.Value()))
+	m.cursor = 0
+	m.offset = 0
+	m.refreshMatches()
 }
 
 func (m *Model) adjustOffset() {
@@ -282,7 +373,13 @@ func (m *Model) acceptCandidate(item complete.Candidate) {
 
 	switch item.Kind {
 	case complete.CandidateCommand:
+		m.historyMode = false
+		m.resetHistoryNavigation()
 		m.input.SetValue(item.Value + " ")
+	case complete.CandidateHistory:
+		m.historyMode = false
+		m.resetHistoryNavigation()
+		m.input.SetValue(item.Value)
 	case complete.CandidateFlag, complete.CandidateValue:
 		m.input.SetValue(replaceCurrentToken(line, item.Value+" "))
 	}
@@ -315,16 +412,21 @@ func (m Model) visibleCandidates() int {
 }
 
 func (m Model) renderInput() string {
+	prompt := "> "
+	if m.historyMode {
+		prompt = styleHistoryPrompt("r> ")
+	}
+
 	value := m.input.Value()
 	if value == "" {
-		return "> " + stylePlaceholder(m.input.Placeholder)
+		return prompt + stylePlaceholder(m.input.Placeholder)
 	}
 
 	if placeholder, ok := m.pendingValuePlaceholder(value); ok {
-		return "> " + value + stylePlaceholder(placeholder)
+		return prompt + value + stylePlaceholder(placeholder)
 	}
 
-	return "> " + value
+	return prompt + value
 }
 
 func (m Model) pendingValuePlaceholder(line string) (string, bool) {
@@ -372,11 +474,19 @@ func stylePlaceholder(s string) string {
 	return "\x1b[90m" + s + "\x1b[0m"
 }
 
+func styleHistoryPrompt(s string) string {
+	return "\x1b[36m" + s + "\x1b[0m"
+}
+
 func candidateDisplayParts(candidate complete.Candidate) (label, note string) {
 	if candidate.Kind == complete.CandidateCommand {
 		if note, ok := commandNote(candidate.Value); ok {
 			return candidate.Display, note
 		}
+		return candidate.Display, ""
+	}
+
+	if candidate.Kind == complete.CandidateHistory {
 		return candidate.Display, ""
 	}
 
@@ -393,6 +503,41 @@ func candidateDisplayParts(candidate complete.Candidate) (label, note string) {
 		return flag, note
 	}
 	return flag, value
+}
+
+func historyCandidates(history []string, query string) []complete.Candidate {
+	if len(history) == 0 {
+		return nil
+	}
+
+	values := make([]string, 0, len(history))
+	for i := len(history) - 1; i >= 0; i-- {
+		values = append(values, history[i])
+	}
+
+	if strings.TrimSpace(query) == "" {
+		candidates := make([]complete.Candidate, 0, len(values))
+		for _, value := range values {
+			candidates = append(candidates, complete.Candidate{
+				Value:   value,
+				Display: value,
+				Kind:    complete.CandidateHistory,
+			})
+		}
+		return candidates
+	}
+
+	matches := fuzzy.Find(query, values)
+	candidates := make([]complete.Candidate, 0, len(matches))
+	for _, match := range matches {
+		candidates = append(candidates, complete.Candidate{
+			Value:   values[match.Index],
+			Display: values[match.Index],
+			Kind:    complete.CandidateHistory,
+		})
+	}
+
+	return candidates
 }
 
 func candidateLabelWidth(candidates []complete.Candidate) int {

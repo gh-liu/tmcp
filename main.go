@@ -24,12 +24,22 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 
-		line, err := ui.ReadCommandLine(commands)
+		history, err := ui.LoadHistory()
+		if err != nil {
+			return err
+		}
+
+		line, err := ui.ReadCommandLineWithHistory(commands, history)
 		if err != nil {
 			return err
 		}
 
 		if err := tmux.ExecuteLine(ctx, line); err != nil {
+			return err
+		}
+
+		history = ui.AppendHistory(history, line)
+		if err := ui.SaveHistory(history); err != nil {
 			return err
 		}
 

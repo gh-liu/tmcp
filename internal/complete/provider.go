@@ -8,6 +8,7 @@ const (
 	CandidateCommand CandidateKind = "command"
 	CandidateFlag    CandidateKind = "flag"
 	CandidateValue   CandidateKind = "value"
+	CandidateHistory CandidateKind = "history"
 )
 
 type Candidate struct {
