@@ -390,6 +390,42 @@ func renderCandidateDisplay(candidate complete.Candidate) string {
 
 func commandNote(command string) (string, bool) {
 	switch command {
+	case "attach-session":
+		return "attach or switch to a session", true
+	case "detach-client":
+		return "detach one or more clients", true
+	case "has-session":
+		return "check whether a session exists", true
+	case "kill-server":
+		return "stop the tmux server", true
+	case "kill-session":
+		return "destroy a session", true
+	case "list-clients":
+		return "list connected clients", true
+	case "list-commands":
+		return "list tmux command syntax", true
+	case "lock-client":
+		return "lock a client", true
+	case "lock-session":
+		return "lock all clients in a session", true
+	case "new-session":
+		return "create a new session", true
+	case "refresh-client":
+		return "refresh a client display", true
+	case "rename-session":
+		return "rename a session", true
+	case "server-access":
+		return "change tmux socket access permissions", true
+	case "show-messages":
+		return "show server messages and debug info", true
+	case "source-file":
+		return "load tmux commands from a file", true
+	case "start-server":
+		return "start the tmux server", true
+	case "suspend-client":
+		return "suspend a client", true
+	case "switch-client":
+		return "switch a client to another session", true
 	case "send-keys":
 		return "send keys to a pane or client", true
 	case "split-window":

@@ -532,6 +532,11 @@ func TestCommandNote(t *testing.T) {
 		want    string
 		ok      bool
 	}{
+		{command: "attach-session", want: "attach or switch to a session", ok: true},
+		{command: "detach-client", want: "detach one or more clients", ok: true},
+		{command: "new-session", want: "create a new session", ok: true},
+		{command: "switch-client", want: "switch a client to another session", ok: true},
+		{command: "source-file", want: "load tmux commands from a file", ok: true},
 		{command: "send-keys", want: "send keys to a pane or client", ok: true},
 		{command: "split-window", want: "split a pane and create a new one", ok: true},
 		{command: "display-popup", want: "show a popup running a shell command", ok: true},
