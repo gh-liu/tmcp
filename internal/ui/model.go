@@ -434,6 +434,22 @@ func commandNote(command string) (string, bool) {
 		return "run a shell or tmux command in the background", true
 	case "wait-for":
 		return "wait on, signal, or lock a channel", true
+	case "bind-key":
+		return "bind a key to a tmux command", true
+	case "clear-prompt-history":
+		return "clear command prompt history", true
+	case "command-prompt":
+		return "open the tmux command prompt", true
+	case "confirm-before":
+		return "ask for confirmation before running a command", true
+	case "copy-mode":
+		return "enter copy mode", true
+	case "customize-mode":
+		return "browse and edit options and key bindings", true
+	case "display-menu":
+		return "show an interactive tmux menu", true
+	case "display-panes":
+		return "show numbered pane indicators", true
 	case "attach-session":
 		return "attach or switch to a session", true
 	case "detach-client":
@@ -488,20 +504,44 @@ func commandNote(command string) (string, bool) {
 		return "show a popup running a shell command", true
 	case "display-message":
 		return "show or print a tmux message", true
+	case "choose-client":
+		return "choose a client from a list", true
+	case "choose-tree":
+		return "choose a session, window, or pane from a tree", true
 	case "list-panes":
 		return "list panes", true
 	case "list-windows":
 		return "list windows", true
 	case "list-sessions":
 		return "list sessions", true
+	case "list-keys":
+		return "list key bindings", true
 	case "capture-pane":
 		return "capture pane contents", true
 	case "pipe-pane":
 		return "pipe pane output to or from a command", true
 	case "join-pane":
 		return "move a pane into another split", true
+	case "move-pane":
+		return "move a pane into another split", true
 	case "break-pane":
 		return "move a pane into its own window", true
+	case "link-window":
+		return "link a window into another session", true
+	case "move-window":
+		return "move a window to a new index", true
+	case "next-layout":
+		return "switch to the next layout", true
+	case "next-window":
+		return "switch to the next window", true
+	case "previous-layout":
+		return "switch to the previous layout", true
+	case "previous-window":
+		return "switch to the previous window", true
+	case "last-pane":
+		return "switch to the previous pane", true
+	case "last-window":
+		return "switch to the previous window", true
 	case "swap-pane":
 		return "swap two panes", true
 	case "swap-window":
@@ -510,10 +550,26 @@ func commandNote(command string) (string, bool) {
 		return "resize a pane", true
 	case "resize-window":
 		return "resize a window", true
+	case "respawn-pane":
+		return "restart a dead pane command", true
+	case "respawn-window":
+		return "restart a dead window command", true
+	case "rotate-window":
+		return "rotate pane positions in a window", true
 	case "rename-window":
 		return "rename a window", true
+	case "select-layout":
+		return "apply a window layout", true
 	case "find-window":
 		return "search window names, titles, or contents", true
+	case "send-prefix":
+		return "send the tmux prefix key to a pane", true
+	case "show-prompt-history":
+		return "show command prompt history", true
+	case "unlink-window":
+		return "unlink a window from a session", true
+	case "unbind-key":
+		return "remove a key binding", true
 	}
 
 	return "", false

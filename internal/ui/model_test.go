@@ -532,6 +532,15 @@ func TestCommandNote(t *testing.T) {
 		want    string
 		ok      bool
 	}{
+		{command: "bind-key", want: "bind a key to a tmux command", ok: true},
+		{command: "command-prompt", want: "open the tmux command prompt", ok: true},
+		{command: "choose-client", want: "choose a client from a list", ok: true},
+		{command: "choose-tree", want: "choose a session, window, or pane from a tree", ok: true},
+		{command: "display-menu", want: "show an interactive tmux menu", ok: true},
+		{command: "move-pane", want: "move a pane into another split", ok: true},
+		{command: "respawn-window", want: "restart a dead window command", ok: true},
+		{command: "send-prefix", want: "send the tmux prefix key to a pane", ok: true},
+		{command: "unbind-key", want: "remove a key binding", ok: true},
 		{command: "choose-buffer", want: "choose a paste buffer from a list", ok: true},
 		{command: "set-environment", want: "set or unset an environment variable", ok: true},
 		{command: "set-option", want: "set a tmux option", ok: true},
@@ -546,7 +555,8 @@ func TestCommandNote(t *testing.T) {
 		{command: "split-window", want: "split a pane and create a new one", ok: true},
 		{command: "display-popup", want: "show a popup running a shell command", ok: true},
 		{command: "find-window", want: "search window names, titles, or contents", ok: true},
-		{command: "choose-tree", want: "", ok: false},
+		{command: "wait-for", want: "wait on, signal, or lock a channel", ok: true},
+		{command: "foobar", want: "", ok: false},
 	}
 
 	for _, tc := range tests {
