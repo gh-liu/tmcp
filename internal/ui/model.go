@@ -387,11 +387,9 @@ func candidateDisplayParts(candidate complete.Candidate) (label, note string) {
 	}
 
 	if note := candidate.Note; note != "" {
-		return flag + " " + stylePlaceholder(value), note
-	} else if note, ok := placeholderNote(value); ok {
-		return flag + " " + stylePlaceholder(value), note
+		return flag, note
 	}
-	return flag + " " + stylePlaceholder(value), ""
+	return flag, value
 }
 
 func candidateLabelWidth(candidates []complete.Candidate) int {

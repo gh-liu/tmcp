@@ -239,25 +239,31 @@ func TestViewAlignsFlagNotes(t *testing.T) {
 
 	model := Model{
 		width:  80,
-		height: 6,
+		height: 9,
 		candidates: []complete.Candidate{
 			{Display: "-d", Note: "keep current active pane", Kind: complete.CandidateFlag},
 			{Display: "-D", Note: "swap with next pane", Kind: complete.CandidateFlag},
 			{Display: "-U", Note: "swap with previous pane", Kind: complete.CandidateFlag},
+			{Display: "-Z", Note: "keep zoom", Kind: complete.CandidateFlag},
+			{Display: "-s src-pane", Kind: complete.CandidateFlag},
+			{Display: "-t dst-pane", Kind: complete.CandidateFlag},
 		},
 	}
 
 	lines := strings.Split(strings.TrimSuffix(model.View(), "\n"), "\n")
-	if len(lines) < 5 {
-		t.Fatalf("View() returned %d lines, want at least 5", len(lines))
+	if len(lines) < 8 {
+		t.Fatalf("View() returned %d lines, want at least 8", len(lines))
 	}
 
 	first := noteStartColumn(t, lines[2], "keep current active pane")
 	second := noteStartColumn(t, lines[3], "swap with next pane")
 	third := noteStartColumn(t, lines[4], "swap with previous pane")
+	fourth := noteStartColumn(t, lines[5], "keep zoom")
+	fifth := noteStartColumn(t, lines[6], "src-pane")
+	sixth := noteStartColumn(t, lines[7], "dst-pane")
 
-	if first != second || second != third {
-		t.Fatalf("note columns = %d, %d, %d, want all equal", first, second, third)
+	if first != second || second != third || third != fourth || fourth != fifth || fifth != sixth {
+		t.Fatalf("note columns = %d, %d, %d, %d, %d, %d, want all equal", first, second, third, fourth, fifth, sixth)
 	}
 }
 
@@ -474,7 +480,7 @@ func TestRenderInputDoesNotShowPendingFlagValuePlaceholderForUnknownFlag(t *test
 	}
 }
 
-func TestCandidateDisplayPartsStylesFlagValuePlaceholder(t *testing.T) {
+func TestCandidateDisplayPartsMovesFlagValuePlaceholderToNote(t *testing.T) {
 	t.Parallel()
 
 	label, note := candidateDisplayParts(complete.Candidate{
@@ -482,17 +488,11 @@ func TestCandidateDisplayPartsStylesFlagValuePlaceholder(t *testing.T) {
 		Kind:    complete.CandidateFlag,
 	})
 
-	if !strings.Contains(label, "-t ") {
-		t.Fatalf("candidateDisplayParts() label = %q, want flag prefix", label)
+	if label != "-t" {
+		t.Fatalf("candidateDisplayParts() label = %q, want flag name", label)
 	}
-	if !strings.Contains(label, "target-pane") {
-		t.Fatalf("candidateDisplayParts() label = %q, want placeholder text", label)
-	}
-	if label == "-t target-pane" {
-		t.Fatalf("candidateDisplayParts() label = %q, want styled placeholder", label)
-	}
-	if note != "" {
-		t.Fatalf("candidateDisplayParts() note = %q, want empty note", note)
+	if note != "target-pane" {
+		t.Fatalf("candidateDisplayParts() note = %q, want placeholder text", note)
 	}
 }
 
@@ -521,7 +521,7 @@ func TestCandidateDisplayPartsAddsBareFlagNote(t *testing.T) {
 	}
 }
 
-func TestCandidateDisplayPartsAddsPlaceholderNote(t *testing.T) {
+func TestCandidateDisplayPartsUsesFlagValuePlaceholderAsNote(t *testing.T) {
 	t.Parallel()
 
 	label, note := candidateDisplayParts(complete.Candidate{
@@ -529,8 +529,8 @@ func TestCandidateDisplayPartsAddsPlaceholderNote(t *testing.T) {
 		Kind:    complete.CandidateFlag,
 	})
 
-	if !strings.Contains(label, "format") || note != "tmux format" {
-		t.Fatalf("candidateDisplayParts() = (%q, %q), want placeholder note", label, note)
+	if label != "-F" || note != "format" {
+		t.Fatalf("candidateDisplayParts() = (%q, %q), want flag and placeholder note", label, note)
 	}
 }
 
@@ -593,8 +593,8 @@ func TestCandidateLabelWidthUsesVisibleLabels(t *testing.T) {
 		{Display: "-D", Note: "swap with next pane", Kind: complete.CandidateFlag},
 		{Display: "-t target-pane", Kind: complete.CandidateFlag},
 	})
-	if width != ansi.StringWidth("-t "+stylePlaceholder("target-pane")) {
-		t.Fatalf("candidateLabelWidth() = %d, want width of longest label", width)
+	if width != ansi.StringWidth("-d") {
+		t.Fatalf("candidateLabelWidth() = %d, want flag name width", width)
 	}
 }
 
