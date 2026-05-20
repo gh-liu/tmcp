@@ -546,26 +546,6 @@ func TestRightAcceptsCurrentGhostCandidate(t *testing.T) {
 	}
 }
 
-func TestCtrlFAcceptsCurrentGhostCandidate(t *testing.T) {
-	t.Parallel()
-
-	model := NewModel([]tmux.Command{
-		{
-			Name:       "select-layout",
-			Positional: []string{"layout-name"},
-		},
-	})
-	model.input.SetValue("select-layout main-")
-	model.refreshMatches()
-
-	updated, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
-	got := updated.(Model)
-
-	if got.input.Value() != "select-layout main-horizontal " {
-		t.Fatalf("input after Ctrl-F = %q, want %q", got.input.Value(), "select-layout main-horizontal ")
-	}
-}
-
 func TestCtrlRTogglesHistorySearchCandidates(t *testing.T) {
 	t.Parallel()
 

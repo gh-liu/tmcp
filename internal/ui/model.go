@@ -121,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyPgDown:
 			m.movePage(1)
 			return m, nil
-		case tea.KeyRight, tea.KeyCtrlF:
+		case tea.KeyRight:
 			if !m.acceptCurrentCandidate() {
 				return m, nil
 			}
