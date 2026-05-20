@@ -1,32 +1,26 @@
 # Tmux Command Palette
 
-`tmcp` 是一个给 tmux 用的命令面板。它通过 `tmux display-popup -E` 拉起，提供：
+`tmcp` is a command palette for tmux. It is designed to run inside `tmux display-popup -E` and provides:
 
-- tmux 命令的 fuzzy 检索
-- 基于命令签名的 flag 和 target 补全
-- 回车直接执行当前输入的 tmux 命令
+- fuzzy search for tmux commands
+- flag and target completion based on tmux command signatures
+- direct execution of the typed tmux command on Enter
 
-## Build
+## Install
 
 ```bash
-go build -o tmcp .
+go install github.com/gh-liu/tmcp@latest
 ```
 
 ## Tmux Binding
 
-把下面这段放进 `~/.tmux.conf`：
+Add this to `~/.tmux.conf`:
 
 ```tmux
-bind-key C-p display-popup -E -w 80% -h 70% "$HOME/path/to/tmcp"
+bind-key C-p display-popup -E -w 80% -h 70% tmcp
 ```
 
-如果你直接在当前仓库里构建，也可以写成：
-
-```tmux
-bind-key C-p display-popup -E -w 80% -h 70% "/home/liu/dev/tmcp/tmcp"
-```
-
-重载配置：
+Reload tmux config:
 
 ```bash
 tmux source-file ~/.tmux.conf
@@ -34,4 +28,4 @@ tmux source-file ~/.tmux.conf
 
 ## Screenshot
 
-`TODO`: add screenshot placeholder for the popup UI.
+`TODO`: add a screenshot of the popup UI.
