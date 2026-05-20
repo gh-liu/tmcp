@@ -965,11 +965,14 @@ func TestCandidateDisplayPartsPrefersCustomCommandNote(t *testing.T) {
 		Value:   "swap-left",
 		Display: "swap-left (sl)",
 		Note:    "swap current pane with the left pane",
-		Kind:    complete.CandidateCommand,
+		Kind:    complete.CandidateCustomCommand,
 	})
 
-	if label != "swap-left (sl)" || note != "swap current pane with the left pane" {
+	if label == "swap-left (sl)" || note != "swap current pane with the left pane" {
 		t.Fatalf("candidateDisplayParts() = (%q, %q), want custom command note", label, note)
+	}
+	if !strings.Contains(label, "\x1b[32m") {
+		t.Fatalf("candidateDisplayParts() label = %q, want green ANSI styling", label)
 	}
 }
 

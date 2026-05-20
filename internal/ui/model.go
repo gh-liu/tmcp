@@ -446,7 +446,7 @@ func (m *Model) acceptCandidate(item complete.Candidate) {
 	line := m.input.Value()
 
 	switch item.Kind {
-	case complete.CandidateCommand:
+	case complete.CandidateCommand, complete.CandidateCustomCommand:
 		m.historyMode = false
 		m.resetHistoryNavigation()
 		m.input.SetValue(item.Value + " ")
@@ -540,7 +540,7 @@ func (m Model) previewSuffix(line string) (string, bool) {
 
 	candidate := m.candidates[m.cursor]
 	switch candidate.Kind {
-	case complete.CandidateCommand, complete.CandidateHistory:
+	case complete.CandidateCommand, complete.CandidateCustomCommand, complete.CandidateHistory:
 		if !strings.HasPrefix(candidate.Value, line) {
 			return "", false
 		}
@@ -584,7 +584,18 @@ func styleHistoryPrompt(s string) string {
 	return "\x1b[36m" + s + "\x1b[0m"
 }
 
+func styleCustomCommand(s string) string {
+	return "\x1b[32m" + s + "\x1b[0m"
+}
+
 func candidateDisplayParts(candidate complete.Candidate) (label, note string) {
+	if candidate.Kind == complete.CandidateCustomCommand {
+		if candidate.Note != "" {
+			return styleCustomCommand(candidate.Display), candidate.Note
+		}
+		return styleCustomCommand(candidate.Display), ""
+	}
+
 	if candidate.Kind == complete.CandidateCommand {
 		if candidate.Note != "" {
 			return candidate.Display, candidate.Note
@@ -626,7 +637,7 @@ func customCommandCandidates(commands []config.Command, query string) []complete
 				Value:   command.Name,
 				Display: formatCustomCommand(command),
 				Note:    command.Note,
-				Kind:    complete.CandidateCommand,
+				Kind:    complete.CandidateCustomCommand,
 			})
 		}
 		return candidates
@@ -643,7 +654,7 @@ func customCommandCandidates(commands []config.Command, query string) []complete
 			Value:   command.Name,
 			Display: formatCustomCommand(command),
 			Note:    command.Note,
-			Kind:    complete.CandidateCommand,
+			Kind:    complete.CandidateCustomCommand,
 		})
 	}
 

@@ -5,10 +5,11 @@ import "context"
 type CandidateKind string
 
 const (
-	CandidateCommand CandidateKind = "command"
-	CandidateFlag    CandidateKind = "flag"
-	CandidateValue   CandidateKind = "value"
-	CandidateHistory CandidateKind = "history"
+	CandidateCommand       CandidateKind = "command"
+	CandidateCustomCommand CandidateKind = "custom-command"
+	CandidateFlag          CandidateKind = "flag"
+	CandidateValue         CandidateKind = "value"
+	CandidateHistory       CandidateKind = "history"
 )
 
 type Candidate struct {
