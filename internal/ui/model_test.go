@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/gh-liu/tmcp/internal/complete"
+	"github.com/gh-liu/tmcp/internal/config"
 	"github.com/gh-liu/tmcp/internal/tmux"
 )
 
@@ -800,10 +801,10 @@ func TestRenderInputStylesPlaceholder(t *testing.T) {
 	if !strings.HasPrefix(got, "> ") {
 		t.Fatalf("renderInput() = %q, want prefix %q", got, "> ")
 	}
-	if !strings.Contains(got, "Type a tmux command") {
+	if !strings.Contains(got, "Type a command") {
 		t.Fatalf("renderInput() = %q, want placeholder text", got)
 	}
-	if got == "> Type a tmux command" {
+	if got == "> Type a command" {
 		t.Fatalf("renderInput() = %q, want styled placeholder", got)
 	}
 }
@@ -954,6 +955,43 @@ func TestCandidateDisplayPartsAddsCommandNote(t *testing.T) {
 
 	if label != "send-keys (send)" || note != "send keys to a pane or client" {
 		t.Fatalf("candidateDisplayParts() = (%q, %q), want command note", label, note)
+	}
+}
+
+func TestCandidateDisplayPartsPrefersCustomCommandNote(t *testing.T) {
+	t.Parallel()
+
+	label, note := candidateDisplayParts(complete.Candidate{
+		Value:   "swap-left",
+		Display: "swap-left (sl)",
+		Note:    "swap current pane with the left pane",
+		Kind:    complete.CandidateCommand,
+	})
+
+	if label != "swap-left (sl)" || note != "swap current pane with the left pane" {
+		t.Fatalf("candidateDisplayParts() = (%q, %q), want custom command note", label, note)
+	}
+}
+
+func TestCustomCommandCandidatesAppearAtTopLevel(t *testing.T) {
+	t.Parallel()
+
+	model := NewModelWithHistoryAndCommands(
+		[]tmux.Command{{Name: "send-keys"}},
+		[]config.Command{{Name: "swap-left", Aliases: []string{"sl"}, Note: "swap current pane", Run: []string{"swap-pane", "-t", "{left}"}}},
+		nil,
+	)
+	model.input.SetValue("sw")
+	model.refreshMatches()
+
+	if len(model.candidates) != 1 {
+		t.Fatalf("len(candidates) = %d, want 1", len(model.candidates))
+	}
+	if model.candidates[0].Value != "swap-left" {
+		t.Fatalf("candidate value = %q, want %q", model.candidates[0].Value, "swap-left")
+	}
+	if model.candidates[0].Note != "swap current pane" {
+		t.Fatalf("candidate note = %q, want %q", model.candidates[0].Note, "swap current pane")
 	}
 }
 

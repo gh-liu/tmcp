@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
 	"github.com/gh-liu/tmcp/internal/complete"
+	"github.com/gh-liu/tmcp/internal/config"
 	"github.com/gh-liu/tmcp/internal/tmux"
 	"github.com/sahilm/fuzzy"
 )
@@ -25,6 +26,7 @@ var getTerminalSize = term.GetSize
 type Model struct {
 	input       textinput.Model
 	commands    []tmux.Command
+	custom      []config.Command
 	completer   complete.Completer
 	candidates  []complete.Candidate
 	history     []string
@@ -44,7 +46,11 @@ func ReadCommandLine(commands []tmux.Command) (string, error) {
 }
 
 func ReadCommandLineWithHistory(commands []tmux.Command, history []string) (string, error) {
-	model := NewModelWithHistory(commands, history)
+	return ReadCommandLineWithHistoryAndCommands(commands, nil, history)
+}
+
+func ReadCommandLineWithHistoryAndCommands(commands []tmux.Command, custom []config.Command, history []string) (string, error) {
+	model := NewModelWithHistoryAndCommands(commands, custom, history)
 	program := tea.NewProgram(model)
 
 	finalModel, err := program.Run()
@@ -65,14 +71,19 @@ func NewModel(commands []tmux.Command) Model {
 }
 
 func NewModelWithHistory(commands []tmux.Command, history []string) Model {
+	return NewModelWithHistoryAndCommands(commands, nil, history)
+}
+
+func NewModelWithHistoryAndCommands(commands []tmux.Command, custom []config.Command, history []string) Model {
 	input := textinput.New()
 	input.Focus()
-	input.Placeholder = "Type a tmux command"
+	input.Placeholder = "Type a command"
 	input.Prompt = "> "
 
 	model := Model{
 		input:      input,
 		commands:   commands,
+		custom:     append([]config.Command(nil), custom...),
 		completer:  complete.NewCompleter(),
 		history:    append([]string(nil), history...),
 		historyPos: len(history),
@@ -321,6 +332,15 @@ func (m *Model) refreshMatches() {
 		return
 	}
 
+	if candidates, ok := m.commandCandidates(m.input.Value()); ok {
+		m.candidates = candidates
+		if m.cursor >= len(m.candidates) {
+			m.cursor = max(0, len(m.candidates)-1)
+		}
+		m.adjustOffset()
+		return
+	}
+
 	candidates, err := m.completer.Complete(context.Background(), m.commands, m.input.Value())
 	if err != nil {
 		m.candidates = nil
@@ -333,6 +353,21 @@ func (m *Model) refreshMatches() {
 	}
 
 	m.adjustOffset()
+}
+
+func (m Model) commandCandidates(line string) ([]complete.Candidate, bool) {
+	tokens := strings.Fields(line)
+	endsWithSpace := strings.HasSuffix(line, " ")
+
+	switch {
+	case len(tokens) == 0:
+		return mergeCommandCandidates(tmuxCommandCandidates(m.commands, ""), customCommandCandidates(m.custom, "")), true
+	case len(tokens) == 1 && !endsWithSpace:
+		query := tokens[0]
+		return mergeCommandCandidates(tmuxCommandCandidates(m.commands, query), customCommandCandidates(m.custom, query)), true
+	default:
+		return nil, false
+	}
 }
 
 func (m *Model) toggleHistoryMode() {
@@ -551,6 +586,9 @@ func styleHistoryPrompt(s string) string {
 
 func candidateDisplayParts(candidate complete.Candidate) (label, note string) {
 	if candidate.Kind == complete.CandidateCommand {
+		if candidate.Note != "" {
+			return candidate.Display, candidate.Note
+		}
 		if note, ok := commandNote(candidate.Value); ok {
 			return candidate.Display, note
 		}
@@ -574,6 +612,138 @@ func candidateDisplayParts(candidate complete.Candidate) (label, note string) {
 		return flag, note
 	}
 	return flag, value
+}
+
+func customCommandCandidates(commands []config.Command, query string) []complete.Candidate {
+	if len(commands) == 0 {
+		return nil
+	}
+
+	if strings.TrimSpace(query) == "" {
+		candidates := make([]complete.Candidate, 0, len(commands))
+		for _, command := range commands {
+			candidates = append(candidates, complete.Candidate{
+				Value:   command.Name,
+				Display: formatCustomCommand(command),
+				Note:    command.Note,
+				Kind:    complete.CandidateCommand,
+			})
+		}
+		return candidates
+	}
+
+	values := make(customCommandValues, len(commands))
+	copy(values, commands)
+
+	matches := fuzzy.FindFrom(query, values)
+	candidates := make([]complete.Candidate, 0, len(matches))
+	for _, match := range matches {
+		command := commands[match.Index]
+		candidates = append(candidates, complete.Candidate{
+			Value:   command.Name,
+			Display: formatCustomCommand(command),
+			Note:    command.Note,
+			Kind:    complete.CandidateCommand,
+		})
+	}
+
+	return candidates
+}
+
+func tmuxCommandCandidates(commands []tmux.Command, query string) []complete.Candidate {
+	if strings.TrimSpace(query) == "" {
+		candidates := make([]complete.Candidate, 0, len(commands))
+		for _, command := range commands {
+			candidates = append(candidates, complete.Candidate{
+				Value:   command.Name,
+				Display: formatTmuxCommand(command),
+				Kind:    complete.CandidateCommand,
+			})
+		}
+		return candidates
+	}
+
+	values := make(tmuxCommandValues, len(commands))
+	copy(values, commands)
+
+	matches := fuzzy.FindFrom(query, values)
+	candidates := make([]complete.Candidate, 0, len(matches))
+	for _, match := range matches {
+		command := commands[match.Index]
+		candidates = append(candidates, complete.Candidate{
+			Value:   command.Name,
+			Display: formatTmuxCommand(command),
+			Kind:    complete.CandidateCommand,
+		})
+	}
+
+	return candidates
+}
+
+func mergeCommandCandidates(primary, secondary []complete.Candidate) []complete.Candidate {
+	seen := make(map[string]struct{}, len(primary)+len(secondary))
+	merged := make([]complete.Candidate, 0, len(primary)+len(secondary))
+
+	for _, candidate := range primary {
+		merged = append(merged, candidate)
+		seen[candidate.Value] = struct{}{}
+	}
+
+	for _, candidate := range secondary {
+		if _, ok := seen[candidate.Value]; ok {
+			continue
+		}
+		merged = append(merged, candidate)
+		seen[candidate.Value] = struct{}{}
+	}
+
+	return merged
+}
+
+func formatTmuxCommand(command tmux.Command) string {
+	if len(command.Aliases) == 0 {
+		return command.Name
+	}
+
+	return fmt.Sprintf("%s (%s)", command.Name, strings.Join(command.Aliases, ", "))
+}
+
+type tmuxCommandValues []tmux.Command
+
+func (c tmuxCommandValues) Len() int {
+	return len(c)
+}
+
+func (c tmuxCommandValues) String(i int) string {
+	command := c[i]
+	if len(command.Aliases) == 0 {
+		return command.Name
+	}
+
+	return command.Name + " " + strings.Join(command.Aliases, " ")
+}
+
+func formatCustomCommand(command config.Command) string {
+	if len(command.Aliases) == 0 {
+		return command.Name
+	}
+
+	return fmt.Sprintf("%s (%s)", command.Name, strings.Join(command.Aliases, ", "))
+}
+
+type customCommandValues []config.Command
+
+func (c customCommandValues) Len() int {
+	return len(c)
+}
+
+func (c customCommandValues) String(i int) string {
+	command := c[i]
+	if len(command.Aliases) == 0 {
+		return command.Name
+	}
+
+	return command.Name + " " + strings.Join(command.Aliases, " ")
 }
 
 func historyCandidates(history []string, query string) []complete.Candidate {
